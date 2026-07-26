@@ -1,0 +1,15 @@
+declare module "pdf-parse/lib/pdf-parse.js" {
+  function pdfParse(
+    dataBuffer: Buffer,
+    options?: unknown,
+  ): Promise<{ text: string; numpages: number; info: unknown }>;
+  export default pdfParse;
+}
+
+declare module "pdf-parse" {
+  function pdfParse(
+    dataBuffer: Buffer,
+    options?: unknown,
+  ): Promise<{ text: string; numpages: number; info: unknown }>;
+  export default pdfParse;
+}

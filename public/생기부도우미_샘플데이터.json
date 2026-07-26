@@ -1,0 +1,207 @@
+{
+  "version": 1,
+  "subjects": [
+    { "id": "subj_default_1", "name": "국어" },
+    { "id": "subj_default_2", "name": "영어" },
+    { "id": "subj_default_3", "name": "수학" },
+    { "id": "subj_default_4", "name": "정보" },
+    { "id": "subj_default_5", "name": "사회" },
+    { "id": "subj_default_6", "name": "도덕" },
+    { "id": "subj_default_7", "name": "과학" },
+    { "id": "subj_default_8", "name": "기술·가정" },
+    { "id": "subj_default_9", "name": "음악" },
+    { "id": "subj_default_10", "name": "미술" },
+    { "id": "subj_default_11", "name": "체육" }
+  ],
+  "students": [
+    { "id": "stu_01", "className": "2-3", "number": "1", "name": "김민준" },
+    { "id": "stu_02", "className": "2-3", "number": "2", "name": "이서연" },
+    { "id": "stu_03", "className": "2-3", "number": "3", "name": "박지호" },
+    { "id": "stu_04", "className": "2-3", "number": "4", "name": "최유진" },
+    { "id": "stu_05", "className": "2-3", "number": "5", "name": "정하은" },
+    { "id": "stu_06", "className": "1-2", "number": "8", "name": "한도윤" },
+    { "id": "stu_07", "className": "1-2", "number": "15", "name": "오수아" }
+  ],
+  "documents": [
+    {
+      "id": "doc_01",
+      "studentId": "stu_01",
+      "section": "subject",
+      "subjectId": "subj_default_1",
+      "title": "시 감상 활동지",
+      "text": "윤동주의 '서시'를 읽고 시인이 밤하늘을 바라보며 느낀 부끄러움과 다짐이 무엇인지 정리함. 시어 '별'과 '바람'이 상징하는 의미를 모둠과 토론하고, 나의 다짐을 짧은 시로 써 봄. 발표 때 친구들의 질문에 근거를 들어 답함.",
+      "teacherNote": "모둠 발표 자료 조사와 발표를 담당함. 시어 해석이 구체적이었음.",
+      "createdAt": "2026-05-12T09:00:00.000Z"
+    },
+    {
+      "id": "doc_02",
+      "studentId": "stu_01",
+      "section": "subject",
+      "subjectId": "subj_default_3",
+      "title": "일차함수 탐구 보고서",
+      "text": "우리 반 급식 잔반량을 일주일간 조사하여 표로 정리하고, 일차함수로 변화 경향을 나타냄. 그래프를 그리고 기울기가 의미하는 바를 설명함. 잔반을 줄이기 위한 실천 방안을 수학적으로 제시함.",
+      "teacherNote": "자료 수집과 그래프 해석을 꼼꼼히 수행함.",
+      "createdAt": "2026-06-03T09:00:00.000Z"
+    },
+    {
+      "id": "doc_03",
+      "studentId": "stu_02",
+      "section": "behavior",
+      "title": "학급 관찰 메모",
+      "text": "",
+      "teacherNote": "학급 회의에서 의견을 정리해 발표함. 친구의 발표를 경청하고 질문함. 조별 활동에서 역할 분담을 제안함. 지각 없이 수업에 참여함.",
+      "createdAt": "2026-06-20T09:00:00.000Z"
+    },
+    {
+      "id": "doc_04",
+      "studentId": "stu_02",
+      "section": "autonomy",
+      "title": "학급회의 활동지",
+      "text": "학급 자치회에서 환경미화 담당으로 활동함. 청소 구역 점검표를 만들어 주 2회 확인함. 친구들과 함께 교실 뒤쪽 정리 방법을 개선함.",
+      "teacherNote": "점검표 작성과 실천을 꾸준히 함.",
+      "createdAt": "2026-04-10T09:00:00.000Z"
+    },
+    {
+      "id": "doc_05",
+      "studentId": "stu_03",
+      "section": "career",
+      "title": "진로 탐색 활동지",
+      "text": "소프트웨어 개발자에 대해 조사함. 필요한 역량(논리력, 협업, 영어)을 정리하고, 관련 교과와 연결해 보았음. 코딩 동아리 활동을 통해 간단한 웹 페이지를 만들어 보고 싶다는 계획을 세움.",
+      "teacherNote": "직업 조사 내용이 구체적이고 실천 계획과 연결됨.",
+      "createdAt": "2026-05-22T09:00:00.000Z"
+    },
+    {
+      "id": "doc_06",
+      "studentId": "stu_04",
+      "section": "volunteer",
+      "title": "봉사활동 소감문",
+      "text": "교내 도서관 정리 봉사에 참여함. 책을 주제별로 분류하고 대출대 주변을 정리함. 저학년 학생이 책을 찾는 것을 도와줌.",
+      "teacherNote": "성실하게 역할을 수행함.",
+      "createdAt": "2026-05-20T09:00:00.000Z"
+    },
+    {
+      "id": "doc_07",
+      "studentId": "stu_05",
+      "section": "club",
+      "title": "과학탐구반 실험 일지",
+      "text": "물의 표면장력 실험을 설계함. 세제 농도에 따른 동전 위 물방울 개수를 측정하고 표를 작성함. 결과를 그래프로 나타내고 오차 원인을 모둠과 토의함.",
+      "teacherNote": "실험 설계와 결과 정리를 담당함. 협업에서 기록을 맡음.",
+      "createdAt": "2026-06-11T09:00:00.000Z"
+    },
+    {
+      "id": "doc_08",
+      "studentId": "stu_06",
+      "section": "subject",
+      "subjectId": "subj_default_2",
+      "title": "영어 발표 대본",
+      "text": "My Favorite Place라는 주제로 우리 동네 도서관에 대해 발표함. 왜 좋아하는지 세 가지 이유를 영어로 작성하고, 질문에도 짧게 답함.",
+      "teacherNote": "발음 연습을 하고 발표에 참여함.",
+      "createdAt": "2026-04-28T09:00:00.000Z"
+    }
+  ],
+  "scheduleItems": [
+    {
+      "id": "sch_01",
+      "date": "2026-03-05",
+      "category": "autonomy",
+      "title": "학급회의 및 임원 선출",
+      "note": "반장·부반장 선출"
+    },
+    {
+      "id": "sch_02",
+      "date": "2026-03-20",
+      "category": "autonomy",
+      "title": "학교폭력 예방 교육",
+      "note": "시청각 교육"
+    },
+    {
+      "id": "sch_03",
+      "date": "2026-04-12",
+      "category": "career",
+      "title": "진로체험의 날",
+      "note": "직업인 초청"
+    },
+    {
+      "id": "sch_04",
+      "date": "2026-05-08",
+      "category": "career",
+      "title": "고교 연계 진로 설명회",
+      "note": ""
+    },
+    {
+      "id": "sch_05",
+      "date": "2026-05-20",
+      "category": "volunteer",
+      "title": "교내 환경정화",
+      "note": "운동장 주변"
+    },
+    {
+      "id": "sch_06",
+      "date": "2026-06-10",
+      "category": "volunteer",
+      "title": "도서관 정리 봉사",
+      "note": "희망자"
+    }
+  ],
+  "scheduleChecks": [
+    { "studentId": "stu_01", "scheduleItemId": "sch_01" },
+    { "studentId": "stu_01", "scheduleItemId": "sch_03" },
+    { "studentId": "stu_02", "scheduleItemId": "sch_01" },
+    { "studentId": "stu_02", "scheduleItemId": "sch_02" },
+    { "studentId": "stu_02", "scheduleItemId": "sch_05" },
+    { "studentId": "stu_03", "scheduleItemId": "sch_03" },
+    { "studentId": "stu_03", "scheduleItemId": "sch_04" },
+    { "studentId": "stu_04", "scheduleItemId": "sch_05" },
+    { "studentId": "stu_04", "scheduleItemId": "sch_06" },
+    { "studentId": "stu_05", "scheduleItemId": "sch_01" }
+  ],
+  "drafts": [
+    {
+      "id": "draft_01",
+      "studentId": "stu_01",
+      "section": "subject",
+      "subjectId": "subj_default_1",
+      "options": [
+        "윤동주 '서시' 감상 활동에서 시어의 상징을 모둠과 토론하고 자신의 다짐을 시로 표현함. 발표 시 친구 질문에 작품 근거를 들어 답하며 모둠 자료 조사와 발표를 담당함.",
+        "'서시'의 부끄러움과 다짐의 의미를 정리하고 별·바람의 상징을 탐구함. 모둠 발표에서 조사와 발표를 맡아 시어 해석을 구체적으로 제시함.",
+        "'서시'를 읽고 시어의 의미를 모둠과 토론하며 자신의 다짐을 시로 씀. 모둠 발표에 참여함.",
+        "'서시' 감상 활동에 참여하여 토론과 발표를 함."
+      ],
+      "levels": ["최상", "상", "중", "하"],
+      "selected": 0,
+      "edited": "윤동주 '서시' 감상 활동에서 시어의 상징을 모둠과 토론하고 자신의 다짐을 시로 표현함. 발표 시 친구 질문에 작품 근거를 들어 답하며 모둠 자료 조사와 발표를 담당함.",
+      "confirmed": true,
+      "provider": "google",
+      "model": "gemini-2.5-flash",
+      "createdAt": "2026-05-13T10:00:00.000Z"
+    }
+  ],
+  "settings": {
+    "charLimits": {
+      "subject": "500",
+      "behavior": "500",
+      "autonomy": "500",
+      "career": "500",
+      "volunteer": "500",
+      "club": "500"
+    },
+    "activeApiKeyId": null,
+    "apiKeys": [],
+    "customModels": [
+      {
+        "id": "model_sample_01",
+        "provider": "google",
+        "modelId": "gemini-2.5-pro",
+        "label": "Gemini 2.5 Pro (샘플)"
+      },
+      {
+        "id": "model_sample_02",
+        "provider": "openai",
+        "modelId": "gpt-4o",
+        "label": "GPT-4o (샘플)"
+      }
+    ],
+    "draftCount": 3,
+    "includeKeysInExport": false
+  }
+}

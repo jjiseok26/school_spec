@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  /* Surface */
+  --canvas: #ffffff;
+  --parchment: #f5f5f7;
+  --surface-pearl: #fafafc;
+  --surface-tile-1: #272729;
+  --surface-black: #000000;
+
+  /* Ink / text */
+  --ink: #1d1d1f;
+  --ink-muted-80: #333333;
+  --ink-muted-48: #7a7a7a;
+
+  /* Accent (single blue) */
+  --primary: #0066cc;
+  --primary-focus: #0071e3;
+  --primary-on-dark: #2997ff;
+
+  /* Hairlines */
+  --hairline: #e0e0e0;
+  --divider-soft: #f0f0f0;
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), var(--font-noto), -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
+  --color-primary: var(--primary);
+  --color-canvas: var(--canvas);
+  --color-parchment: var(--parchment);
+  --color-ink: var(--ink);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+}
+
+/* Apple-tight display tracking for headings */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+}
+
+/* Larger, comfortable tap targets on touch devices */
+@media (pointer: coarse) {
+  button,
+  a,
+  select,
+  input,
+  textarea {
+    touch-action: manipulation;
+  }
+}
+
+@media print {
+  body {
+    background: white !important;
+  }
+  .no-print,
+  header {
+    display: none !important;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
