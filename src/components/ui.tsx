@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useAppStore } from "@/lib/store";
+import type { AppData } from "@/lib/types";
+import { downloadTextFile } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "홈" },
@@ -14,6 +17,93 @@ const NAV = [
   { href: "/report", label: "활동열람" },
   { href: "/settings", label: "설정" },
 ];
+
+function GlobalBackupButtons() {
+  const { data, exportData, importData, setIncludeKeysInExport } = useAppStore();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast] = useState("");
+
+  function flash(msg: string) {
+    setToast(msg);
+    window.setTimeout(() => setToast(""), 2500);
+  }
+
+  function onExport() {
+    const payload = exportData(data.settings.includeKeysInExport);
+    downloadTextFile(
+      `생기부도우미_${new Date().toISOString().slice(0, 10)}.json`,
+      JSON.stringify(payload, null, 2),
+    );
+    flash(
+      data.settings.includeKeysInExport
+        ? "JSON 내보내기 완료 (API 키 포함)"
+        : "JSON 내보내기 완료 (API 키 제외)",
+    );
+  }
+
+  async function onImport(file: File) {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as AppData;
+      if (parsed?.version !== 1) {
+        throw new Error("지원하지 않는 JSON 형식입니다.");
+      }
+      const includeKeys = window.confirm(
+        "JSON에 포함된 API 키도 불러올까요?\n취소를 누르면 기존 키를 유지합니다.",
+      );
+      importData(parsed, includeKeys);
+      flash("JSON을 불러왔습니다.");
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "불러오기 실패");
+    }
+  }
+
+  return (
+    <div className="relative flex shrink-0 flex-col items-end gap-1.5">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] transition-transform hover:bg-[var(--surface-pearl)] active:scale-95"
+          onClick={onExport}
+        >
+          JSON 내보내기
+        </button>
+        <button
+          type="button"
+          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] transition-transform hover:bg-[var(--surface-pearl)] active:scale-95"
+          onClick={() => fileRef.current?.click()}
+        >
+          JSON 불러오기
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void onImport(file);
+            e.target.value = "";
+          }}
+        />
+      </div>
+      <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[var(--ink-muted-80)]">
+        <input
+          type="checkbox"
+          className="rounded border-[var(--hairline)]"
+          checked={data.settings.includeKeysInExport}
+          onChange={(e) => setIncludeKeysInExport(e.target.checked)}
+        />
+        내보내기에 API 키 포함
+      </label>
+      {toast ? (
+        <p className="absolute right-0 top-full z-50 mt-2 max-w-[240px] rounded-xl bg-slate-900 px-3 py-2 text-xs text-white shadow-lg">
+          {toast}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export function AppShell({
   title,
@@ -92,15 +182,18 @@ export function AppShell({
 
       {/* sub-nav-frosted: page title strip */}
       <header className="no-print sticky top-11 z-30 border-b border-[var(--hairline)] bg-[var(--parchment)]/80 backdrop-blur-xl backdrop-saturate-150">
-        <div className="mx-auto max-w-[1080px] px-4 py-4 sm:px-6 sm:py-5">
-          <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] sm:text-[28px]">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="mt-1 text-[15px] leading-snug text-[var(--ink-muted-80)] sm:text-[17px]">
-              {subtitle}
-            </p>
-          ) : null}
+        <div className="mx-auto flex max-w-[1080px] items-start justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] sm:text-[28px]">
+              {title}
+            </h1>
+            {subtitle ? (
+              <p className="mt-1 text-[15px] leading-snug text-[var(--ink-muted-80)] sm:text-[17px]">
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
+          <GlobalBackupButtons />
         </div>
       </header>
 

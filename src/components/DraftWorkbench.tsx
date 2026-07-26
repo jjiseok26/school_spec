@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { findDraft, useAppStore } from "@/lib/store";
-import { formatActivityDate } from "@/lib/prompts";
+import { formatActivityDate, formatOfficerLabel } from "@/lib/prompts";
 import type { Draft, Section, StudentDoc } from "@/lib/types";
 import {
   ACTIVITY_CATEGORIES,
@@ -27,6 +27,7 @@ export function DraftWorkbench({
   subjectId,
   subjectName,
   checkedActivities,
+  officers,
   extraNote,
 }: {
   studentId: string;
@@ -37,6 +38,13 @@ export function DraftWorkbench({
     date: string;
     title: string;
     note: string;
+    observation?: string;
+  }[];
+  officers?: {
+    gradeLabel?: string;
+    title: string;
+    startDate: string;
+    endDate: string;
     observation?: string;
   }[];
   extraNote?: string;
@@ -73,6 +81,16 @@ export function DraftWorkbench({
       `${a.date}-${a.title}`.localeCompare(`${b.date}-${b.title}`, "ko"),
     );
   }, [checkedActivities]);
+
+  const sortedOfficers = useMemo(() => {
+    const list = [...(officers ?? [])];
+    return list.sort((a, b) =>
+      `${a.startDate}-${a.title}`.localeCompare(
+        `${b.startDate}-${b.title}`,
+        "ko",
+      ),
+    );
+  }, [officers]);
 
   const mergedDraft = useMemo(
     () => findDraft(data.drafts, studentId, section, subjectId),
@@ -128,6 +146,7 @@ export function DraftWorkbench({
           },
         ],
         checkedActivities: sortedActivities,
+        officers: sortedOfficers,
         charLimit: data.settings.charLimits[section],
         credentials,
       });
@@ -174,6 +193,7 @@ export function DraftWorkbench({
             },
           ],
           checkedActivities: sortedActivities,
+          officers: sortedOfficers,
           charLimit: data.settings.charLimits[section],
           credentials,
         });
@@ -258,6 +278,7 @@ export function DraftWorkbench({
           teacherNote: "",
         })),
         checkedActivities,
+        officers: sortedOfficers,
         extraNote,
         mergeMode: true,
         charLimit: data.settings.charLimits[section],
@@ -289,9 +310,15 @@ export function DraftWorkbench({
       setError("설정에서 API 키를 등록하세요.");
       return;
     }
-    if (isActivitySection && sortedActivities.length === 0) {
+    if (
+      isActivitySection &&
+      sortedActivities.length === 0 &&
+      sortedOfficers.length === 0
+    ) {
       setError(
-        "체크된 일정이 없습니다. 일정 체크 탭에서 참여 활동을 먼저 선택하세요.",
+        section === "autonomy"
+          ? "체크된 일정 또는 임원 기록이 없습니다. 일정 체크나 임원 탭에서 먼저 등록하세요."
+          : "체크된 일정이 없습니다. 일정 체크 탭에서 참여 활동을 먼저 선택하세요.",
       );
       return;
     }
@@ -307,6 +334,7 @@ export function DraftWorkbench({
           teacherNote: doc.teacherNote,
         })),
         checkedActivities: sortedActivities,
+        officers: sortedOfficers,
         extraNote,
         charLimit: data.settings.charLimits[section],
         credentials,
@@ -373,7 +401,9 @@ export function DraftWorkbench({
 
       <p className="mb-3 text-sm text-[var(--ink-muted-48)]">
         {isActivitySection
-          ? "체크한 일정과 교사 관찰을 바탕으로 「활동명(날짜)에서 …함.」 형식의 특기사항을 만듭니다. 행동 특성·참여도·협력도·실적·실제 역할을 충실히 반영합니다."
+          ? section === "autonomy"
+            ? "체크한 일정·임원 기록과 교사 관찰을 바탕으로 특기사항을 만듭니다. 임원은 「임원명(기간)」 형식으로 반영되며 학년은 넣지 않습니다."
+            : "체크한 일정과 교사 관찰을 바탕으로 「활동명(날짜)에서 …함.」 형식의 특기사항을 만듭니다. 행동 특성·참여도·협력도·실적·실제 역할을 충실히 반영합니다."
           : "문서마다 최상·상·중·하 초안을 만들고 확정한 뒤, «전체 초안 수합하여 최종 초안 생성»으로 최종 특기사항을 만들 수 있습니다. 학생 문서 탭에서도 건별로 생성·확정이 가능합니다."}
       </p>
 
@@ -382,48 +412,84 @@ export function DraftWorkbench({
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="font-semibold text-[var(--ink)]">
-                체크한 일정으로 특기사항 초안 생성
+                {section === "autonomy"
+                  ? "일정·임원 기반 특기사항 초안 생성"
+                  : "체크한 일정으로 특기사항 초안 생성"}
               </p>
               <p className="text-xs text-[var(--ink-muted-48)]">
-                예: 학급회의 및 임원 선출(2026.03.05.)에서 …을 함.
+                {section === "autonomy"
+                  ? "예: 1학기 전교 학생자치회 부회장(2026.03.01.-2026.08.18.)으로서 …함."
+                  : "예: 학급회의 및 임원 선출(2026.03.05.)에서 …을 함."}
               </p>
             </div>
             <button
               type="button"
               className={btnPrimary}
-              disabled={busy || !studentId || sortedActivities.length === 0}
+              disabled={
+                busy ||
+                !studentId ||
+                (sortedActivities.length === 0 && sortedOfficers.length === 0)
+              }
               onClick={() => void generateFromSources()}
             >
               {busyKey === "sources"
                 ? "생성 중…"
-                : `일정 기반 초안 생성 (${sortedActivities.length})`}
+                : section === "autonomy"
+                  ? `일정·임원 기반 초안 생성 (${sortedActivities.length + sortedOfficers.length})`
+                  : `일정 기반 초안 생성 (${sortedActivities.length})`}
             </button>
           </div>
-          {sortedActivities.length === 0 ? (
-            <p className="text-sm text-[var(--ink-muted-48)]">
-              일정 체크 탭에서 참여 활동을 선택하세요.
-            </p>
-          ) : (
-            <ul className="space-y-1 text-sm text-[var(--ink-muted-80)]">
-              {sortedActivities.map((a, i) => {
-                const date = formatActivityDate(a.date);
-                const title = a.title.trim() || "활동";
-                return (
-                  <li key={`${a.date}_${a.title}_${i}`}>
-                    <span>
-                      · {date ? `${title}(${date})` : title}
-                      {a.note ? ` — ${a.note}` : ""}
-                    </span>
-                    {a.observation?.trim() ? (
+          {sortedOfficers.length > 0 ? (
+            <div className="mb-3">
+              <p className="mb-1 text-xs font-semibold text-[var(--ink-muted-48)]">
+                임원
+              </p>
+              <ul className="space-y-1 text-sm text-[var(--ink-muted-80)]">
+                {sortedOfficers.map((o, i) => (
+                  <li key={`${o.title}_${o.startDate}_${i}`}>
+                    <span>· {formatOfficerLabel(o)}</span>
+                    {o.observation?.trim() ? (
                       <span className="mt-0.5 block pl-3 text-xs text-[var(--ink-muted-48)]">
-                        관찰: {a.observation.trim()}
+                        관찰: {o.observation.trim()}
                       </span>
                     ) : null}
                   </li>
-                );
-              })}
-            </ul>
-          )}
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {sortedActivities.length === 0 && sortedOfficers.length === 0 ? (
+            <p className="text-sm text-[var(--ink-muted-48)]">
+              {section === "autonomy"
+                ? "일정 체크 또는 임원 탭에서 먼저 등록하세요."
+                : "일정 체크 탭에서 참여 활동을 선택하세요."}
+            </p>
+          ) : sortedActivities.length > 0 ? (
+            <div>
+              <p className="mb-1 text-xs font-semibold text-[var(--ink-muted-48)]">
+                체크한 일정
+              </p>
+              <ul className="space-y-1 text-sm text-[var(--ink-muted-80)]">
+                {sortedActivities.map((a, i) => {
+                  const date = formatActivityDate(a.date);
+                  const title = a.title.trim() || "활동";
+                  return (
+                    <li key={`${a.date}_${a.title}_${i}`}>
+                      <span>
+                        · {date ? `${title}(${date})` : title}
+                        {a.note ? ` — ${a.note}` : ""}
+                      </span>
+                      {a.observation?.trim() ? (
+                        <span className="mt-0.5 block pl-3 text-xs text-[var(--ink-muted-48)]">
+                          관찰: {a.observation.trim()}
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
         </div>
       ) : null}
 

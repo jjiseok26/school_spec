@@ -4,8 +4,17 @@ import {
   parseLeveledDrafts,
   type CompletionRequest,
 } from "@/lib/providers";
-import { buildSystemPrompt, buildUserPrompt } from "@/lib/prompts";
-import { DRAFT_LEVELS, type Credential, type Section } from "@/lib/types";
+import {
+  buildSystemPrompt,
+  buildUserPrompt,
+  stripGradeMarkersFromCreativeDraft,
+} from "@/lib/prompts";
+import {
+  ACTIVITY_CATEGORIES,
+  DRAFT_LEVELS,
+  type Credential,
+  type Section,
+} from "@/lib/types";
 import { parseCharLimit } from "@/lib/utils";
 
 export const runtime = "nodejs";
@@ -18,6 +27,13 @@ interface GenerateBody {
     date: string;
     title: string;
     note: string;
+    observation?: string;
+  }[];
+  officers?: {
+    gradeLabel?: string;
+    title: string;
+    startDate: string;
+    endDate: string;
     observation?: string;
   }[];
   extraNote?: string;
@@ -53,6 +69,7 @@ export async function POST(req: Request) {
       subjectName: body.subjectName,
       documents: body.documents ?? [],
       checkedActivities: body.checkedActivities,
+      officers: body.officers,
       extraNote: body.extraNote,
       mergeMode: body.mergeMode,
     });
@@ -99,8 +116,15 @@ export async function POST(req: Request) {
       );
     }
 
+    const isCreative = (ACTIVITY_CATEGORIES as readonly string[]).includes(
+      body.section,
+    );
+    const drafts = isCreative
+      ? parsed.options.map(stripGradeMarkersFromCreativeDraft)
+      : parsed.options;
+
     return NextResponse.json({
-      drafts: parsed.options,
+      drafts,
       levels: parsed.levels,
       used: {
         provider: credential.provider,

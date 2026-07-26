@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppShell, Card, Field, SegmentedTabs, btnPrimary, btnSecondary, inputClass } from "@/components/ui";
 import { useAppStore } from "@/lib/store";
+import {
+  formatActivityDate,
+  formatOfficerLabel,
+} from "@/lib/prompts";
 import { SECTION_LABELS, type Section } from "@/lib/types";
 import { downloadTextFile } from "@/lib/utils";
 
@@ -106,6 +110,37 @@ function ReportPageInner() {
     );
   };
 
+  /** 문서·일정·임원 초안 슬롯 제목 */
+  function draftSlotTitle(documentId?: string): string | null {
+    if (!documentId) return null;
+    if (documentId.startsWith("sch:")) {
+      const item = data.scheduleItems.find(
+        (s) => s.id === documentId.slice(4),
+      );
+      if (!item) return "일정 항목";
+      const date = formatActivityDate(item.date);
+      const title = item.title.trim() || "활동";
+      return date ? `${title}(${date})` : title;
+    }
+    if (documentId.startsWith("off:")) {
+      const officer = data.officers.find((o) => o.id === documentId.slice(4));
+      return officer ? formatOfficerLabel(officer) : "임원";
+    }
+    return (
+      data.documents.find((d) => d.id === documentId)?.title?.trim() || null
+    );
+  }
+
+  function draftSlotKind(documentId?: string): "문서" | "항목" {
+    if (
+      documentId?.startsWith("sch:") ||
+      documentId?.startsWith("off:")
+    ) {
+      return "항목";
+    }
+    return "문서";
+  }
+
   /** 영역별 자료를 과목(또는 동아리) 단위로 묶고, 수합 → 근거 순으로 정렬 */
   function groupSectionContent(section: Section) {
     const sectionDocs = documents.filter((d) => d.section === section);
@@ -197,11 +232,10 @@ function ReportPageInner() {
               draft.selected != null
                 ? draft.levels?.[draft.selected]
                 : undefined;
-            const docTitle = draft.documentId
-              ? data.documents.find((d) => d.id === draft.documentId)?.title
-              : null;
+            const slotTitle = draftSlotTitle(draft.documentId);
+            const kind = draftSlotKind(draft.documentId);
             lines.push(
-              `문서 초안${docTitle ? ` · ${docTitle}` : ""}${draft.confirmed ? " [확정]" : ""}${level ? ` [${level}]` : ""}`,
+              `${kind} 초안${slotTitle ? ` · ${slotTitle}` : ""}${draft.confirmed ? " [확정]" : ""}${level ? ` [${level}]` : ""}`,
             );
             lines.push(draft.edited.trim() || "(내용 없음)");
             lines.push("");
@@ -268,13 +302,12 @@ function ReportPageInner() {
             draft.selected != null
               ? draft.levels?.[draft.selected]
               : undefined;
-          const docTitle = draft.documentId
-            ? data.documents.find((d) => d.id === draft.documentId)?.title
-            : null;
+          const slotTitle = draftSlotTitle(draft.documentId);
+          const kind = draftSlotKind(draft.documentId);
           rows.push([
             SECTION_LABELS[section],
             "근거 초안",
-            `${docTitle || "문서 초안"}${subj ? ` (${subj})` : ""}`,
+            `${slotTitle || `${kind} 초안`}${subj ? ` (${subj})` : ""}`,
             level ?? "",
             draft.confirmed ? "확정" : "",
             draft.edited.trim() || "(내용 없음)",
@@ -596,13 +629,13 @@ function ReportPageInner() {
                                           draft.selected != null
                                             ? draft.levels?.[draft.selected]
                                             : undefined;
-                                        const docTitle = draft.documentId
-                                          ? data.documents.find(
-                                              (d) =>
-                                                d.id === draft.documentId,
-                                            )?.title
-                                          : null;
-                                        const label = `문서 초안${docTitle ? ` · ${docTitle}` : ""}`;
+                                        const slotTitle = draftSlotTitle(
+                                          draft.documentId,
+                                        );
+                                        const kind = draftSlotKind(
+                                          draft.documentId,
+                                        );
+                                        const label = `${kind} 초안${slotTitle ? ` · ${slotTitle}` : ""}`;
                                         return (
                                           <div
                                             key={draft.id}

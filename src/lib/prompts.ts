@@ -13,7 +13,7 @@ const SECTION_GUIDE: Record<Section, string> = {
   behavior:
     "학급 생활에서 지속적으로 관찰된 인성, 학습 태도, 대인 관계, 변화와 성장을 서술한다. 특정 사건 하나에 치우치지 않고 반복 관찰된 행동을 중심으로 기술한다.",
   autonomy:
-    "자율활동은 학생이 체크한 학교·학급 일정과 그에 대한 교사 관찰을 중심으로, 활동 과정에서 드러난 역할·참여·협력·실적을 구체적으로 서술한다.",
+    "자율활동은 학생이 체크한 학교·학급 일정과 임원 활동, 그에 대한 교사 관찰을 중심으로, 활동 과정에서 드러난 역할·참여·협력·실적을 구체적으로 서술한다.",
   career:
     "진로활동은 학생이 체크한 진로 관련 일정과 교사 관찰을 중심으로, 탐색·준비·실천 과정에서의 역할과 행동을 구체적으로 서술한다.",
   volunteer:
@@ -39,6 +39,45 @@ export function formatActivityDate(date: string) {
   return trimmed;
 }
 
+/** 예: 1학기 전교 학생자치회 부회장(2026.03.01.-2026.08.18.) — 생기부에는 학년 미포함 */
+export function formatOfficerLabel(input: {
+  title: string;
+  startDate: string;
+  endDate: string;
+}) {
+  const start = formatActivityDate(input.startDate);
+  const end = formatActivityDate(input.endDate);
+  const period =
+    start && end ? `${start}-${end}` : start || end || "";
+  return period
+    ? `${input.title.trim()}(${period})`
+    : input.title.trim();
+}
+
+/** 해당 학년도 기본 임기: 3월 1일 ~ 다음 해 2월 말일 */
+export function defaultOfficerDates(now = new Date()) {
+  const y = now.getFullYear();
+  const month = now.getMonth(); // 0=1월
+  // 1~2월이면 직전 3월이 학년도 시작
+  const startYear = month < 2 ? y - 1 : y;
+  const endYear = startYear + 1;
+  const isLeap =
+    (endYear % 4 === 0 && endYear % 100 !== 0) || endYear % 400 === 0;
+  const endDay = isLeap ? "29" : "28";
+  return {
+    startDate: `${startYear}-03-01`,
+    endDate: `${endYear}-02-${endDay}`,
+  };
+}
+
+/** 생기부 창체 특기사항에서 흔한 «N학년:» 접두어 제거 */
+export function stripGradeMarkersFromCreativeDraft(text: string) {
+  return text
+    .replace(/(^|[.。]\s*)(\d{1,2})\s*학년\s*[:：]\s*/g, "$1")
+    .replace(/^\s*(\d{1,2})\s*학년\s+/g, "")
+    .trim();
+}
+
 export function buildSystemPrompt(section: Section, charLimit: number | null) {
   const limitRule = charLimit
     ? `- 각 초안은 공백을 포함하여 ${charLimit}자 이내로 작성한다. 이 분량을 넘기지 않는다.`
@@ -62,6 +101,20 @@ export function buildSystemPrompt(section: Section, charLimit: number | null) {
         "- 학생 문서·상담 자료는 각 활동의 역할·태도·실적을 뒷받침하는 근거로 사용한다.",
         "- 여러 활동이 있으면 날짜순으로 문장을 이어 쓰되, 각 활동마다 역할·참여·협력·실적 중 근거에 있는 요소를 구체적으로 담는다.",
         "- 근거에 없는 행동·성과를 지어내지 않는다. 근거가 빈약한 활동은 짧게만 쓴다.",
+        ...(section === "autonomy"
+          ? [
+              "",
+              "임원 활동 서술 (자율활동):",
+              "- 등록된 임원은 「임원명(시작일-종료일)」 형식을 그대로 쓰고, 이어서 임원 기간의 역할·행동 특성·참여도·협력도·활동 실적을 서술한다.",
+              "- 잘된 예: 전교 학생회장(2026.03.01.-2027.02.28.)으로서 학생 의견을 수렴하고 회의를 진행하는 역할을 수행함.",
+              "- 잘못된 예(금지): 2학년: 전교 학생회장(2026.03.01.-2027.02.28.)으로서 …함.",
+              "- 특기사항 문장 앞이나 중간에 «1학년:», «2학년:», «3학년:» 같은 학년 표기를 절대 넣지 않는다. 학년·학급 정보는 쓰지 않는다.",
+              "- 임원 관찰 내용이 있으면 우선 반영하고, 없는 사실은 추가하지 않는다.",
+            ]
+          : [
+              "",
+              "창체 특기사항에는 «1학년:», «2학년:», «3학년:» 같은 학년 표기를 절대 넣지 않는다.",
+            ]),
       ]
     : [];
 
@@ -104,6 +157,14 @@ export interface GenerationInput {
     note: string;
     observation?: string;
   }[];
+  /** 자율활동 임원 기록 */
+  officers?: {
+    gradeLabel?: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+    observation?: string;
+  }[];
   extraNote?: string;
   /** 문서별 초안을 하나로 수합할 때 true */
   mergeMode?: boolean;
@@ -111,9 +172,12 @@ export interface GenerationInput {
 
 export function buildUserPrompt(input: GenerationInput) {
   const parts: string[] = [];
+  const hasActivities = Boolean(input.checkedActivities?.length);
+  const hasOfficers =
+    input.section === "autonomy" && Boolean(input.officers?.length);
   const activityMode =
     isActivitySection(input.section) &&
-    Boolean(input.checkedActivities?.length) &&
+    (hasActivities || hasOfficers) &&
     !input.mergeMode;
 
   if (input.subjectName) {
@@ -122,7 +186,29 @@ export function buildUserPrompt(input: GenerationInput) {
 
   if (input.mergeMode) {
     parts.push(
-      "[수합 지시] 아래는 학생 문서별로 이미 작성된 특기사항 초안이다. 중복을 줄이고 흐름이 자연스럽도록 하나의 특기사항으로 수합하라. 각 초안에 없는 사실은 추가하지 않는다.",
+      "[수합 지시] 아래는 이미 작성된 특기사항 초안이다. 중복을 줄이고 흐름이 자연스럽도록 하나의 특기사항으로 수합하라. 각 초안에 없는 사실은 추가하지 않는다." +
+        (isActivitySection(input.section)
+          ? " «N학년:» 같은 학년 표기가 있으면 제거하고 수합하라."
+          : ""),
+    );
+  }
+
+  if (input.officers?.length && input.section === "autonomy") {
+    const lines = input.officers.map((o) => {
+      const label = formatOfficerLabel(o);
+      const bits = [`- ${label}`];
+      if (o.observation?.trim()) {
+        bits.push(
+          `  임원 기간 관찰(행동특성·참여도·협력도·활동실적): ${o.observation.trim()}`,
+        );
+      }
+      return bits.join("\n");
+    });
+    parts.push(
+      "[임원 활동 — 특기사항에 반드시 반영]\n" +
+        "형식 예: 전교 학생회장(2026.03.01.-2027.02.28.)으로서 …함.\n" +
+        "임원명·기간만 쓰고 «N학년:» 등 학년 정보는 절대 넣지 마라. 관찰 내용을 바탕으로 역할과 실적을 서술하라.\n" +
+        lines.join("\n"),
     );
   }
 
@@ -173,9 +259,9 @@ export function buildUserPrompt(input: GenerationInput) {
   if (activityMode) {
     parts.push(
       [
-        "위 체크된 활동을 뼈대로 하고, 각 활동의 교사 관찰·학생 문서·상담 자료를 근거로 특기사항을 작성하라.",
-        "활동 과정에서 드러난 개별 행동 특성, 참여도, 협력도, 활동 실적과 실제 역할을 충실히 담아라.",
-        "각 초안의 모든 문장은 「활동명(YYYY.MM.DD.)에서 …함.」 형식을 따르며, 최상/상/중/하 등급 초안 4개를 JSON으로 작성하라.",
+        "위 임원·체크된 활동을 뼈대로 하고, 각 항목의 교사 관찰·학생 문서·상담 자료를 근거로 특기사항을 작성하라.",
+        "활동·임원 기간에서 드러난 개별 행동 특성, 참여도, 협력도, 활동 실적과 실제 역할을 충실히 담아라.",
+        "임원은 「임원명(시작일-종료일)」 형식만 쓰고 «N학년:» 표기는 금지한다. 일반 활동은 「활동명(YYYY.MM.DD.)에서 …함.」 형식을 따르며, 최상/상/중/하 등급 초안 4개를 JSON으로 작성하라.",
       ].join(" "),
     );
   } else {

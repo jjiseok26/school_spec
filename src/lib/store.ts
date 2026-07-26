@@ -9,6 +9,7 @@ import {
   type ClubGroup,
   type Draft,
   type DraftLevel,
+  type OfficerRole,
   type ScheduleCheck,
   type ScheduleItem,
   type Section,
@@ -106,6 +107,7 @@ function hydrate() {
           ...rest,
           subjects: mergeDefaultSubjects(parsed.subjects ?? []),
           clubs: migratedClubs,
+          officers: Array.isArray(parsed.officers) ? parsed.officers : [],
           settings: {
             ...createEmptyData().settings,
             ...restSettings,
@@ -179,6 +181,7 @@ export function useAppStore() {
             clubMemberIds?: string[];
             settings?: AppData["settings"] & { teacherClubName?: string | null };
           }),
+          officers: Array.isArray(incoming.officers) ? incoming.officers : [],
           settings: {
             ...base.settings,
             ...incoming.settings,
@@ -379,6 +382,7 @@ export function useAppStore() {
           d.documents = d.documents.filter((doc) => doc.studentId !== id);
           d.scheduleChecks = d.scheduleChecks.filter((c) => c.studentId !== id);
           d.drafts = d.drafts.filter((draft) => draft.studentId !== id);
+          d.officers = d.officers.filter((o) => o.studentId !== id);
           for (const club of d.clubs) {
             club.memberIds = club.memberIds.filter((sid) => sid !== id);
           }
@@ -623,6 +627,42 @@ export function useAppStore() {
       setScheduleChecks(checks: ScheduleCheck[]) {
         update((d) => {
           d.scheduleChecks = checks;
+        });
+      },
+      addOfficer(
+        input: Omit<OfficerRole, "id">,
+      ) {
+        const id = uid("off");
+        update((d) => {
+          d.officers.push({
+            id,
+            studentId: input.studentId,
+            gradeLabel: input.gradeLabel?.trim() ?? "",
+            title: input.title.trim(),
+            startDate: input.startDate.trim(),
+            endDate: input.endDate.trim(),
+            observation: input.observation.trim(),
+          });
+        });
+        return id;
+      },
+      updateOfficer(id: string, patch: Partial<Omit<OfficerRole, "id" | "studentId">>) {
+        update((d) => {
+          const target = d.officers.find((o) => o.id === id);
+          if (!target) return;
+          if (patch.gradeLabel !== undefined)
+            target.gradeLabel = patch.gradeLabel?.trim() ?? "";
+          if (patch.title !== undefined) target.title = patch.title.trim();
+          if (patch.startDate !== undefined)
+            target.startDate = patch.startDate.trim();
+          if (patch.endDate !== undefined) target.endDate = patch.endDate.trim();
+          if (patch.observation !== undefined)
+            target.observation = patch.observation.trim();
+        });
+      },
+      removeOfficer(id: string) {
+        update((d) => {
+          d.officers = d.officers.filter((o) => o.id !== id);
         });
       },
       upsertDraft(input: {

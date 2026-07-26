@@ -67,6 +67,20 @@ export interface ScheduleCheck {
   observation?: string;
 }
 
+/** 자율활동 임원(학생자치회 등) 기록 */
+export interface OfficerRole {
+  id: string;
+  studentId: string;
+  /** 임원명. 예: 1학기 전교 학생자치회 부회장 */
+  title: string;
+  startDate: string;
+  endDate: string;
+  /** 임원 기간 중 행동특성·참여도·협력도·활동실적 등 관찰 */
+  observation: string;
+  /** @deprecated 생기부 반영 시 사용하지 않음. 호환용 */
+  gradeLabel?: string;
+}
+
 export type DraftLevel = "최상" | "상" | "중" | "하";
 
 export const DRAFT_LEVELS: DraftLevel[] = ["최상", "상", "중", "하"];
@@ -131,6 +145,8 @@ export interface AppData {
   drafts: Draft[];
   /** 등록된 동아리 목록 (각각 동아리원 포함) */
   clubs: ClubGroup[];
+  /** 자율활동 임원 기록 */
+  officers: OfficerRole[];
   settings: Settings;
 }
 
@@ -304,6 +320,7 @@ export function createEmptyData(): AppData {
     scheduleChecks: [],
     drafts: [],
     clubs: [],
+    officers: [],
     settings: {
       charLimits: { ...EMPTY_CHAR_LIMITS },
       activeApiKeyId: null,

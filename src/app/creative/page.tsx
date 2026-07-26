@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { ClassExcelPanel } from "@/components/ClassExcelPanel";
+import { CreativeDraftPanel } from "@/components/CreativeDraftPanel";
 import { DocumentPanel } from "@/components/DocumentPanel";
-import { DraftWorkbench } from "@/components/DraftWorkbench";
+import { OfficerPanel } from "@/components/OfficerPanel";
 import { StudentPicker } from "@/components/StudentPicker";
 import {
   AppShell,
@@ -68,9 +69,9 @@ export default function CreativePage() {
   const [tab, setTab] = useState<ActivityCategory>("autonomy");
   const [scheduleFilter, setScheduleFilter] = useState<ScheduleFilter>("all");
   const [setupTab, setSetupTab] = useState<"form" | "excel">("form");
-  const [workTab, setWorkTab] = useState<"schedule" | "documents" | "drafts">(
-    "schedule",
-  );
+  const [workTab, setWorkTab] = useState<
+    "schedule" | "officers" | "documents" | "drafts"
+  >("schedule");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [manual, setManual] = useState<{
@@ -97,26 +98,6 @@ export default function CreativePage() {
       ),
     );
   }, [data.scheduleItems, scheduleFilter]);
-
-  const checkedActivities = useMemo(() => {
-    if (!studentId) return [];
-    const checksByItem = new Map(
-      data.scheduleChecks
-        .filter((c) => c.studentId === studentId)
-        .map((c) => [c.scheduleItemId, c] as const),
-    );
-    return data.scheduleItems
-      .filter((item) => item.category === tab && checksByItem.has(item.id))
-      .sort((a, b) =>
-        `${a.date}-${a.title}`.localeCompare(`${b.date}-${b.title}`, "ko"),
-      )
-      .map((item) => ({
-        date: item.date,
-        title: item.title,
-        note: item.note,
-        observation: checksByItem.get(item.id)?.observation ?? "",
-      }));
-  }, [data.scheduleChecks, data.scheduleItems, studentId, tab]);
 
   async function onDownloadScheduleExcel() {
     setBusy(true);
@@ -469,12 +450,17 @@ export default function CreativePage() {
               <SegmentedTabs
                 tabs={[
                   { id: "schedule", label: "일정 체크" },
+                  { id: "officers", label: "임원(자율)" },
                   { id: "documents", label: "학생 문서" },
                   { id: "drafts", label: "초안 생성" },
                 ]}
                 value={workTab}
                 onChange={setWorkTab}
               />
+
+              {workTab === "officers" ? (
+                <OfficerPanel studentId={studentId} />
+              ) : null}
 
               {workTab === "schedule" ? (
                 <>
@@ -718,15 +704,29 @@ export default function CreativePage() {
               ) : null}
 
               {workTab === "documents" ? (
-                <DocumentPanel studentId={studentId} section={tab} />
+                <>
+                  <div className="mb-3 flex flex-wrap gap-2">
+                    {ACTIVITY_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setTab(cat)}
+                        className={`rounded-full px-4 py-2 text-sm font-semibold transition-transform active:scale-95 ${
+                          tab === cat
+                            ? "bg-[var(--primary)] text-white"
+                            : "border border-[var(--hairline)] bg-white text-[var(--ink)]"
+                        }`}
+                      >
+                        {SECTION_LABELS[cat]}
+                      </button>
+                    ))}
+                  </div>
+                  <DocumentPanel studentId={studentId} section={tab} />
+                </>
               ) : null}
 
               {workTab === "drafts" ? (
-                <DraftWorkbench
-                  studentId={studentId}
-                  section={tab}
-                  checkedActivities={checkedActivities}
-                />
+                <CreativeDraftPanel studentId={studentId} />
               ) : null}
             </>
           )}
