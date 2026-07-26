@@ -62,6 +62,7 @@ export default function SettingsPage() {
     updateApiKey,
     removeApiKey,
     setActiveApiKey,
+    moveApiKey,
     addCustomModel,
     updateCustomModel,
     removeCustomModel,
@@ -475,129 +476,173 @@ export default function SettingsPage() {
                   Google, NVIDIA, OpenAI, Claude 키를 여러 개 등록할 수 있습니다.
                 </p>
               ) : (
-                <ul className="space-y-3">
-                  {data.settings.apiKeys.map((key) => {
-                    const options = listModelsForProvider(
-                      key.provider,
-                      customModels,
-                    );
-                    const usesCustom = !isListedModel(key.model, options);
-                    return (
-                      <li
-                        key={key.id}
-                        className={`rounded-xl border p-3 ${
-                          data.settings.activeApiKeyId === key.id
-                            ? "border-indigo-400 bg-indigo-50"
-                            : "border-slate-200"
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="font-semibold text-slate-800">
-                              {key.label}{" "}
-                              <span className="text-xs font-normal text-slate-500">
-                                {PROVIDER_LABELS[key.provider]}
+                <>
+                  <p className="mb-3 text-sm text-slate-600">
+                    위쪽이 우선순위가 높습니다. 생성 시 위에서부터 시도하고, 앞선
+                    키가 실패하면 다음 키로 넘어갑니다. 성공한 키는 자동으로
+                    1순위가 되고, 실패한 키는 뒤로 밀립니다.
+                  </p>
+                  <ul className="space-y-3">
+                    {data.settings.apiKeys.map((key, index) => {
+                      const options = listModelsForProvider(
+                        key.provider,
+                        customModels,
+                      );
+                      const usesCustom = !isListedModel(key.model, options);
+                      const isFirst =
+                        data.settings.activeApiKeyId === key.id || index === 0;
+                      return (
+                        <li
+                          key={key.id}
+                          className={`rounded-xl border p-3 ${
+                            isFirst && key.enabled
+                              ? "border-indigo-400 bg-indigo-50"
+                              : "border-slate-200"
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-start gap-2">
+                              <span
+                                className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                                  isFirst && key.enabled
+                                    ? "bg-[var(--primary)] text-white"
+                                    : "bg-slate-100 text-slate-600"
+                                }`}
+                                title="우선순위"
+                              >
+                                {index + 1}
                               </span>
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              모델: {key.model} · 키: {"*".repeat(8)}
-                              {key.apiKey.slice(-4)}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              type="button"
-                              className={btnSecondary}
-                              onClick={() => setActiveApiKey(key.id)}
-                            >
-                              {data.settings.activeApiKeyId === key.id
-                                ? "기본 키"
-                                : "기본으로"}
-                            </button>
-                            <button
-                              type="button"
-                              className={btnSecondary}
-                              disabled={testingId === key.id}
-                              onClick={() => void testKey(key.id)}
-                            >
-                              {testingId === key.id
-                                ? "테스트 중…"
-                                : "연결 테스트"}
-                            </button>
-                            <button
-                              type="button"
-                              className={btnSecondary}
-                              onClick={() =>
-                                updateApiKey(key.id, {
-                                  enabled: !key.enabled,
-                                })
-                              }
-                            >
-                              {key.enabled ? "사용 중" : "비활성"}
-                            </button>
-                            <button
-                              type="button"
-                              className={btnDanger}
-                              onClick={() => removeApiKey(key.id)}
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        </div>
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          <input
-                            className={inputClass}
-                            value={key.label}
-                            onChange={(e) =>
-                              updateApiKey(key.id, { label: e.target.value })
-                            }
-                          />
-                          <div className="space-y-2">
-                            <select
-                              className={inputClass}
-                              value={usesCustom ? "__custom__" : key.model}
-                              onChange={(e) => {
-                                if (e.target.value === "__custom__") {
-                                  updateApiKey(key.id, {
-                                    model: isListedModel(key.model, options)
-                                      ? ""
-                                      : key.model,
-                                  });
-                                  return;
+                              <div>
+                                <p className="font-semibold text-slate-800">
+                                  {key.label}{" "}
+                                  <span className="text-xs font-normal text-slate-500">
+                                    {PROVIDER_LABELS[key.provider]}
+                                  </span>
+                                  {isFirst && key.enabled ? (
+                                    <span className="ml-2 text-xs font-medium text-indigo-700">
+                                      1순위
+                                    </span>
+                                  ) : null}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  모델: {key.model} · 키: {"*".repeat(8)}
+                                  {key.apiKey.slice(-4)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className={btnSecondary}
+                                disabled={index === 0}
+                                onClick={() => moveApiKey(key.id, "up")}
+                              >
+                                위로
+                              </button>
+                              <button
+                                type="button"
+                                className={btnSecondary}
+                                disabled={
+                                  index === data.settings.apiKeys.length - 1
                                 }
-                                updateApiKey(key.id, {
-                                  model: e.target.value,
-                                });
-                              }}
-                            >
-                              {options.map((m) => (
-                                <option
-                                  key={`${key.id}-${m.modelId}`}
-                                  value={m.modelId}
-                                >
-                                  {m.label} ({m.modelId})
-                                </option>
-                              ))}
-                              <option value="__custom__">직접 입력…</option>
-                            </select>
-                            {usesCustom ? (
-                              <input
-                                className={inputClass}
-                                value={key.model}
-                                onChange={(e) =>
+                                onClick={() => moveApiKey(key.id, "down")}
+                              >
+                                아래로
+                              </button>
+                              <button
+                                type="button"
+                                className={btnSecondary}
+                                onClick={() => setActiveApiKey(key.id)}
+                              >
+                                {isFirst && key.enabled
+                                  ? "1순위"
+                                  : "1순위로"}
+                              </button>
+                              <button
+                                type="button"
+                                className={btnSecondary}
+                                disabled={testingId === key.id}
+                                onClick={() => void testKey(key.id)}
+                              >
+                                {testingId === key.id
+                                  ? "테스트 중…"
+                                  : "연결 테스트"}
+                              </button>
+                              <button
+                                type="button"
+                                className={btnSecondary}
+                                onClick={() =>
                                   updateApiKey(key.id, {
-                                    model: e.target.value,
+                                    enabled: !key.enabled,
                                   })
                                 }
-                                placeholder="모델 ID"
-                              />
-                            ) : null}
+                              >
+                                {key.enabled ? "사용 중" : "비활성"}
+                              </button>
+                              <button
+                                type="button"
+                                className={btnDanger}
+                                onClick={() => removeApiKey(key.id)}
+                              >
+                                삭제
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            <input
+                              className={inputClass}
+                              value={key.label}
+                              onChange={(e) =>
+                                updateApiKey(key.id, { label: e.target.value })
+                              }
+                            />
+                            <div className="space-y-2">
+                              <select
+                                className={inputClass}
+                                value={usesCustom ? "__custom__" : key.model}
+                                onChange={(e) => {
+                                  if (e.target.value === "__custom__") {
+                                    updateApiKey(key.id, {
+                                      model: isListedModel(key.model, options)
+                                        ? ""
+                                        : key.model,
+                                    });
+                                    return;
+                                  }
+                                  updateApiKey(key.id, {
+                                    model: e.target.value,
+                                  });
+                                }}
+                              >
+                                {options.map((m) => (
+                                  <option
+                                    key={`${key.id}-${m.modelId}`}
+                                    value={m.modelId}
+                                  >
+                                    {m.label} ({m.modelId})
+                                  </option>
+                                ))}
+                                <option value="__custom__">직접 입력…</option>
+                              </select>
+                              {usesCustom ? (
+                                <input
+                                  className={inputClass}
+                                  value={key.model}
+                                  onChange={(e) =>
+                                    updateApiKey(key.id, {
+                                      model: e.target.value,
+                                    })
+                                  }
+                                  placeholder="모델 ID"
+                                />
+                              ) : null}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
               )}
             </Card>
           </section>

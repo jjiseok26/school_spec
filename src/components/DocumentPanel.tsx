@@ -83,7 +83,13 @@ export function DocumentPanel({
   subjectId?: string;
   subjectName?: string;
 }) {
-  const { data, addDocument, updateDocument, removeDocument } = useAppStore();
+  const {
+    data,
+    addDocument,
+    updateDocument,
+    removeDocument,
+    adjustApiKeyPriority,
+  } = useAppStore();
   const [paste, setPaste] = useState("");
   const [title, setTitle] = useState("");
   const [teacherNote, setTeacherNote] = useState("");
@@ -139,6 +145,9 @@ export function DocumentPanel({
         const res = await fetch("/api/extract", { method: "POST", body: form });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || "추출 실패");
+        if (json.used?.id) {
+          adjustApiKeyPriority(json.used.id, json.failedIds ?? []);
+        }
         addDocument({
           studentId,
           section,

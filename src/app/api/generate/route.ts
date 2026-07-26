@@ -88,10 +88,10 @@ export async function POST(req: Request) {
       maxTokens: 4096,
     };
 
-    const { text, credential } = await completeWithFallback(
-      body.credentials,
-      request,
-    );
+    const first = await completeWithFallback(body.credentials, request);
+    let text = first.text;
+    let credential = first.credential;
+    let failedIds = [...first.failedIds];
     let parsed = parseLeveledDrafts(text);
 
     if (parsed.options.length < DRAFT_LEVELS.length) {
@@ -103,7 +103,12 @@ export async function POST(req: Request) {
             `\n\n이전에 ${parsed.options.length}개만 나왔습니다. 최상/상/중/하 네 등급 초안을 모두 JSON으로 다시 작성하세요.`,
         });
         const more = parseLeveledDrafts(retry.text);
-        if (more.options.length >= parsed.options.length) parsed = more;
+        if (more.options.length >= parsed.options.length) {
+          parsed = more;
+          text = retry.text;
+          credential = retry.credential;
+          failedIds = [...new Set([...failedIds, ...retry.failedIds])];
+        }
       } catch {
         // 기존 초안이라도 반환
       }
@@ -127,10 +132,12 @@ export async function POST(req: Request) {
       drafts,
       levels: parsed.levels,
       used: {
+        id: credential.id,
         provider: credential.provider,
         model: credential.model,
         label: credential.label,
       },
+      failedIds,
     });
   } catch (error) {
     return NextResponse.json(

@@ -32,6 +32,7 @@ export function PerDocumentDraft({
     selectDraftOption,
     editDraft,
     confirmDraft,
+    adjustApiKeyPriority,
   } = useAppStore();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -78,6 +79,9 @@ export function PerDocumentDraft({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "생성 실패");
+      if (json.used?.id) {
+        adjustApiKeyPriority(json.used.id, json.failedIds ?? []);
+      }
       upsertDraft({
         studentId,
         section,

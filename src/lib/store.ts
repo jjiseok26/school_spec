@@ -269,6 +269,45 @@ export function useAppStore() {
       setActiveApiKey(id: string | null) {
         update((d) => {
           d.settings.activeApiKeyId = id;
+          if (!id) return;
+          const idx = d.settings.apiKeys.findIndex((k) => k.id === id);
+          if (idx <= 0) return;
+          const [key] = d.settings.apiKeys.splice(idx, 1);
+          d.settings.apiKeys.unshift(key);
+        });
+      },
+      moveApiKey(id: string, direction: "up" | "down") {
+        update((d) => {
+          const idx = d.settings.apiKeys.findIndex((k) => k.id === id);
+          if (idx < 0) return;
+          const swapWith = direction === "up" ? idx - 1 : idx + 1;
+          if (swapWith < 0 || swapWith >= d.settings.apiKeys.length) return;
+          const keys = d.settings.apiKeys;
+          [keys[idx], keys[swapWith]] = [keys[swapWith], keys[idx]];
+          const firstEnabled = keys.find((k) => k.enabled && k.apiKey.trim());
+          d.settings.activeApiKeyId = firstEnabled?.id ?? keys[0]?.id ?? null;
+        });
+      },
+      /** 성공한 키를 맨 앞으로, 실패한 키는 맨 뒤로 */
+      adjustApiKeyPriority(successId: string, failedIds: string[] = []) {
+        update((d) => {
+          const keys = d.settings.apiKeys;
+          const success = keys.find((k) => k.id === successId);
+          if (!success) return;
+          const failedSet = new Set(
+            failedIds.filter((id) => id && id !== successId),
+          );
+          const currentFirst = keys.find(
+            (k) => k.enabled && k.apiKey.trim(),
+          )?.id;
+          if (currentFirst === successId && failedSet.size === 0) return;
+
+          const rest = keys.filter(
+            (k) => k.id !== successId && !failedSet.has(k.id),
+          );
+          const demoted = keys.filter((k) => failedSet.has(k.id));
+          d.settings.apiKeys = [success, ...rest, ...demoted];
+          d.settings.activeApiKeyId = successId;
         });
       },
       addCustomModel(entry: Omit<RegisteredModel, "id">) {

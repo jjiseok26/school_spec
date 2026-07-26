@@ -43,7 +43,10 @@ type ActivityRow = {
   observation: string;
 };
 
-async function callGenerate(body: Record<string, unknown>) {
+async function callGenerate(
+  body: Record<string, unknown>,
+  onPriority?: (usedId: string | undefined, failedIds: string[]) => void,
+) {
   const res = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -51,10 +54,15 @@ async function callGenerate(body: Record<string, unknown>) {
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json.error || "생성 실패");
+  onPriority?.(
+    (json.used as { id?: string } | undefined)?.id,
+    (json.failedIds as string[] | undefined) ?? [],
+  );
   return json as {
     drafts: string[];
     levels?: Draft["levels"];
-    used?: { provider: Draft["provider"]; model: string };
+    used?: { id?: string; provider: Draft["provider"]; model: string };
+    failedIds?: string[];
   };
 }
 
@@ -67,6 +75,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
     editDraft,
     confirmDraft,
     setCharLimit,
+    adjustApiKeyPriority,
   } = useAppStore();
   const [scope, setScope] = useState<Scope>("all");
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -78,6 +87,10 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
       orderCredentials(data.settings.apiKeys, data.settings.activeApiKeyId),
     [data.settings.apiKeys, data.settings.activeApiKeyId],
   );
+
+  function notePriority(usedId?: string, failedIds: string[] = []) {
+    if (usedId) adjustApiKeyPriority(usedId, failedIds);
+  }
 
   const checksByItem = useMemo(() => {
     const map = new Map<string, string>();
@@ -164,7 +177,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
             : undefined,
         charLimit: data.settings.charLimits[category],
         credentials,
-      });
+      }, notePriority);
       upsertDraft({
         studentId,
         section: category,
@@ -212,7 +225,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
               : undefined,
           charLimit: data.settings.charLimits[category],
           credentials,
-        });
+        }, notePriority);
         upsertDraft({
           studentId,
           section: category,
@@ -258,7 +271,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
         ],
         charLimit: data.settings.charLimits[category],
         credentials,
-      });
+      }, notePriority);
       upsertDraft({
         studentId,
         section: category,
@@ -296,7 +309,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
         ],
         charLimit: data.settings.charLimits.autonomy,
         credentials,
-      });
+      }, notePriority);
       upsertDraft({
         studentId,
         section: "autonomy",
@@ -337,7 +350,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
           ],
           charLimit: data.settings.charLimits[category],
           credentials,
-        });
+        }, notePriority);
         upsertDraft({
           studentId,
           section: category,
@@ -370,7 +383,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
             ],
             charLimit: data.settings.charLimits.autonomy,
             credentials,
-          });
+          }, notePriority);
           upsertDraft({
             studentId,
             section: "autonomy",
@@ -448,7 +461,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
         mergeMode: true,
         charLimit: data.settings.charLimits[category],
         credentials,
-      });
+      }, notePriority);
       upsertDraft({
         studentId,
         section: category,
@@ -509,14 +522,12 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
               ))}
             </div>
           </Field>
-          <Field label="사용 중인 API 키">
+          <Field label="1순위 API 키">
             <div className="rounded-xl border border-[var(--hairline)] bg-[var(--parchment)] px-3 py-2 text-sm text-[var(--ink-muted-80)]">
               {(() => {
-                const active = data.settings.apiKeys.find(
-                  (k) => k.id === data.settings.activeApiKeyId,
-                );
-                return active
-                  ? `${active.label} · ${PROVIDER_LABELS[active.provider]}`
+                const first = credentials[0];
+                return first
+                  ? `${first.label ?? PROVIDER_LABELS[first.provider]} · ${PROVIDER_LABELS[first.provider]}`
                   : "미선택 (설정에서 등록)";
               })()}
             </div>

@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { text, credential } = await completeWithFallback(credentials, {
+    const { text, credential, failedIds } = await completeWithFallback(credentials, {
       system: OCR_PROMPT,
       user: "이미지의 텍스트를 추출하세요.",
       image: {
@@ -80,10 +80,12 @@ export async function POST(req: Request) {
       source: file.name,
       ocr: true,
       used: {
+        id: credential.id,
         provider: credential.provider,
         model: credential.model,
         label: credential.label,
       },
+      failedIds,
     });
   } catch (error) {
     return NextResponse.json(

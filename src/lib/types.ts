@@ -151,6 +151,7 @@ export interface AppData {
 }
 
 export interface Credential {
+  id?: string;
   provider: Provider;
   apiKey: string;
   model: string;

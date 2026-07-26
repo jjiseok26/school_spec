@@ -177,6 +177,8 @@ export async function complete(
 export interface CompletionResult {
   text: string;
   credential: Credential;
+  /** 성공 전에 실패한 키 id (우선순위 자동 조정용) */
+  failedIds: string[];
 }
 
 /** 첫 번째 자격 증명부터 순서대로 시도하고, 실패하면 다음 키로 넘어간다. */
@@ -185,19 +187,22 @@ export async function completeWithFallback(
   request: CompletionRequest,
 ): Promise<CompletionResult> {
   const errors: string[] = [];
+  const failedIds: string[] = [];
   for (const credential of credentials) {
     try {
       const text = await complete(credential, request);
-      if (text.trim()) return { text, credential };
+      if (text.trim()) return { text, credential, failedIds };
       errors.push(
         `${credential.label ?? PROVIDER_LABELS[credential.provider]}: 빈 응답`,
       );
+      if (credential.id) failedIds.push(credential.id);
     } catch (error) {
       errors.push(
         `${credential.label ?? PROVIDER_LABELS[credential.provider]}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
+      if (credential.id) failedIds.push(credential.id);
     }
   }
   throw new Error(

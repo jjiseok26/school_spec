@@ -9,32 +9,18 @@ export function parseCharLimit(value: string | undefined | null) {
 
 export function orderCredentials(
   apiKeys: ApiKeyEntry[],
-  activeApiKeyId: string | null,
+  _activeApiKeyId?: string | null,
 ): Credential[] {
-  const enabled = apiKeys.filter((k) => k.enabled && k.apiKey.trim());
-  if (!enabled.length) return [];
-
-  const active = activeApiKeyId
-    ? enabled.find((k) => k.id === activeApiKeyId)
-    : undefined;
-  const rest = enabled.filter((k) => k.id !== active?.id);
-
-  // 같은 제공자 키를 우선 폴백한다.
-  const ordered: ApiKeyEntry[] = [];
-  if (active) {
-    ordered.push(active);
-    ordered.push(...rest.filter((k) => k.provider === active.provider));
-    ordered.push(...rest.filter((k) => k.provider !== active.provider));
-  } else {
-    ordered.push(...rest);
-  }
-
-  return ordered.map((k) => ({
-    provider: k.provider,
-    apiKey: k.apiKey.trim(),
-    model: k.model,
-    label: k.label,
-  }));
+  // 배열 순서가 우선순위(앞이 높음). activeApiKeyId는 UI 표시용으로 유지.
+  return apiKeys
+    .filter((k) => k.enabled && k.apiKey.trim())
+    .map((k) => ({
+      id: k.id,
+      provider: k.provider,
+      apiKey: k.apiKey.trim(),
+      model: k.model,
+      label: k.label,
+    }));
 }
 
 export function parseScheduleCsv(text: string) {
@@ -79,61 +65,56 @@ export function parseScheduleCsv(text: string) {
   return items;
 }
 
-function findHeader(header: string[], aliases: string[]) {
-  return header.findIndex((h) => aliases.includes(h));
+function normalizeCategory(raw: string): ActivityCategory {
+  const v = raw.trim().toLowerCase();
+  if (v.includes("진로") || v.includes("career")) return "career";
+  if (v.includes("봉사") || v.includes("volunteer") || v.includes("service"))
+    return "volunteer";
+  return "autonomy";
 }
 
-function normalizeCategory(raw: string): ActivityCategory {
-  const value = raw.trim().toLowerCase();
-  if (
-    value.includes("진로") ||
-    value.includes("career") ||
-    value === "진로활동"
-  ) {
-    return "career";
-  }
-  if (
-    value.includes("봉사") ||
-    value.includes("volunteer") ||
-    value.includes("service")
-  ) {
-    return "volunteer";
-  }
-  return "autonomy";
+function findHeader(header: string[], aliases: string[]) {
+  return header.findIndex((h) => aliases.some((a) => h.includes(a)));
 }
 
 function splitCsvLine(line: string) {
   const result: string[] = [];
-  let current = "";
+  let cur = "";
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
     const ch = line[i];
     if (ch === '"') {
       if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
+        cur += '"';
+        i += 1;
       } else {
         inQuotes = !inQuotes;
       }
       continue;
     }
     if (ch === "," && !inQuotes) {
-      result.push(current);
-      current = "";
+      result.push(cur);
+      cur = "";
       continue;
     }
-    current += ch;
+    cur += ch;
   }
-  result.push(current);
+  result.push(cur);
   return result;
 }
 
-export const SCHEDULE_TEMPLATE_CSV = [
-  "날짜,구분,활동명,비고",
-  "2026-03-05,자율,학급회의,반장 선출",
-  "2026-04-12,진로,진로체험의 날,직업인 초청",
-  "2026-05-20,봉사,교내 환경정화,운동장 주변",
-].join("\n");
+export async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
+}
 
 export function downloadTextFile(
   filename: string,
@@ -147,8 +128,4 @@ export function downloadTextFile(
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-export async function copyText(text: string) {
-  await navigator.clipboard.writeText(text);
 }

@@ -56,6 +56,7 @@ export function DraftWorkbench({
     editDraft,
     confirmDraft,
     setCharLimit,
+    adjustApiKeyPriority,
   } = useAppStore();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -111,10 +112,14 @@ export function DraftWorkbench({
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "생성 실패");
+    const usedId = (json.used as { id?: string } | undefined)?.id;
+    const failedIds = (json.failedIds as string[] | undefined) ?? [];
+    if (usedId) adjustApiKeyPriority(usedId, failedIds);
     return json as {
       drafts: string[];
       levels?: Draft["levels"];
-      used?: { provider: Draft["provider"]; model: string };
+      used?: { id?: string; provider: Draft["provider"]; model: string };
+      failedIds?: string[];
     };
   }
 
@@ -385,14 +390,12 @@ export function DraftWorkbench({
             inputMode="numeric"
           />
         </Field>
-        <Field label="사용 중인 API 키">
+        <Field label="1순위 API 키">
           <div className="rounded-xl border border-[var(--hairline)] bg-[var(--parchment)] px-3 py-2 text-sm text-[var(--ink-muted-80)]">
             {(() => {
-              const active = data.settings.apiKeys.find(
-                (k) => k.id === data.settings.activeApiKeyId,
-              );
-              return active
-                ? `${active.label} · ${PROVIDER_LABELS[active.provider]}`
+              const first = credentials[0];
+              return first
+                ? `${first.label ?? PROVIDER_LABELS[first.provider]} · ${PROVIDER_LABELS[first.provider]}`
                 : "미선택 (설정에서 등록)";
             })()}
           </div>
