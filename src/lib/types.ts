@@ -187,6 +187,7 @@ export const BUILT_IN_MODELS: Record<
     { modelId: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
   ],
   nvidia: [
+    // Free Endpoint · chat/text (build.nvidia.com, 2026-07)
     {
       modelId: "meta/llama-3.3-70b-instruct",
       label: "Llama 3.3 70B",
@@ -196,8 +197,160 @@ export const BUILT_IN_MODELS: Record<
       label: "Llama 3.1 70B",
     },
     {
-      modelId: "mistralai/mistral-large-2-instruct",
-      label: "Mistral Large 2",
+      modelId: "meta/llama-3.1-8b-instruct",
+      label: "Llama 3.1 8B",
+    },
+    {
+      modelId: "meta/llama-3.2-3b-instruct",
+      label: "Llama 3.2 3B",
+    },
+    {
+      modelId: "meta/llama-3.2-1b-instruct",
+      label: "Llama 3.2 1B",
+    },
+    {
+      modelId: "meta/llama-4-maverick-17b-128e-instruct",
+      label: "Llama 4 Maverick 17B",
+    },
+    {
+      modelId: "nvidia/nemotron-3-ultra-550b-a55b",
+      label: "Nemotron 3 Ultra 550B",
+    },
+    {
+      modelId: "nvidia/nemotron-3-super-120b-a12b",
+      label: "Nemotron 3 Super 120B",
+    },
+    {
+      modelId: "nvidia/nemotron-3-nano-30b-a3b",
+      label: "Nemotron 3 Nano 30B",
+    },
+    {
+      modelId: "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+      label: "Nemotron Super 49B v1.5",
+    },
+    {
+      modelId: "nvidia/llama-3.3-nemotron-super-49b-v1",
+      label: "Nemotron Super 49B v1",
+    },
+    {
+      modelId: "nvidia/llama-3.1-nemotron-nano-8b-v1",
+      label: "Nemotron Nano 8B",
+    },
+    {
+      modelId: "nvidia/nvidia-nemotron-nano-9b-v2",
+      label: "Nemotron Nano 9B v2",
+    },
+    {
+      modelId: "nvidia/nemotron-mini-4b-instruct",
+      label: "Nemotron Mini 4B",
+    },
+    {
+      modelId: "google/gemma-4-31b-it",
+      label: "Gemma 4 31B",
+    },
+    {
+      modelId: "google/gemma-3n-e4b-it",
+      label: "Gemma 3n E4B",
+    },
+    {
+      modelId: "google/gemma-3n-e2b-it",
+      label: "Gemma 3n E2B",
+    },
+    {
+      modelId: "google/gemma-2-2b-it",
+      label: "Gemma 2 2B",
+    },
+    {
+      modelId: "google/diffusiongemma-26b-a4b-it",
+      label: "DiffusionGemma 26B",
+    },
+    {
+      modelId: "mistralai/mistral-medium-3.5-128b",
+      label: "Mistral Medium 3.5 128B",
+    },
+    {
+      modelId: "mistralai/mistral-small-4-119b-2603",
+      label: "Mistral Small 4 119B",
+    },
+    {
+      modelId: "mistralai/ministral-14b-instruct-2512",
+      label: "Ministral 14B Instruct",
+    },
+    {
+      modelId: "mistralai/mistral-nemotron",
+      label: "Mistral Nemotron",
+    },
+    {
+      modelId: "mistralai/mixtral-8x7b-instruct",
+      label: "Mixtral 8x7B",
+    },
+    {
+      modelId: "deepseek-ai/deepseek-v4-pro",
+      label: "DeepSeek V4 Pro",
+    },
+    {
+      modelId: "deepseek-ai/deepseek-v4-flash",
+      label: "DeepSeek V4 Flash",
+    },
+    {
+      modelId: "openai/gpt-oss-120b",
+      label: "GPT-OSS 120B",
+    },
+    {
+      modelId: "openai/gpt-oss-20b",
+      label: "GPT-OSS 20B",
+    },
+    {
+      modelId: "qwen/qwen3-next-80b-a3b-instruct",
+      label: "Qwen3 Next 80B Instruct",
+    },
+    {
+      modelId: "moonshotai/kimi-k2.6",
+      label: "Kimi K2.6",
+    },
+    {
+      modelId: "minimaxai/minimax-m3",
+      label: "MiniMax M3",
+    },
+    {
+      modelId: "minimaxai/minimax-m2.7",
+      label: "MiniMax M2.7",
+    },
+    {
+      modelId: "z-ai/glm-5.2",
+      label: "GLM 5.2",
+    },
+    {
+      modelId: "stepfun-ai/step-3.7-flash",
+      label: "Step 3.7 Flash",
+    },
+    {
+      modelId: "stepfun-ai/step-3.5-flash",
+      label: "Step 3.5 Flash",
+    },
+    {
+      modelId: "thinkingmachines/inkling",
+      label: "Inkling",
+    },
+    {
+      modelId: "poolside/laguna-xs-2.1",
+      label: "Laguna XS 2.1",
+    },
+    {
+      modelId: "bytedance/seed-oss-36b-instruct",
+      label: "Seed-OSS 36B",
+    },
+    {
+      modelId: "abacusai/dracarys-llama-3.1-70b-instruct",
+      label: "Dracarys Llama 3.1 70B",
+    },
+    {
+      modelId: "sarvamai/sarvam-m",
+      label: "Sarvam-M",
+    },
+    {
+      modelId: "upstage/solar-10.7b-instruct",
+      label: "SOLAR 10.7B",
     },
   ],
   openai: [
