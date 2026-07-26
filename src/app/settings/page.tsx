@@ -232,8 +232,8 @@ export default function SettingsPage() {
     );
     setMessage(
       data.settings.includeKeysInExport
-        ? "JSON을 내보냈습니다. (API 키 포함)"
-        : "JSON을 내보냈습니다. (API 키 제외)",
+        ? "저장했습니다. (API 키 포함)"
+        : "저장했습니다. (API 키 제외)",
     );
   }
 
@@ -248,7 +248,7 @@ export default function SettingsPage() {
         "JSON에 포함된 API 키도 불러올까요?\n취소를 누르면 기존 키를 유지합니다.",
       );
       importData(parsed, includeKeys);
-      setMessage("JSON을 불러왔습니다.");
+      setMessage("불러오기가 완료되었습니다.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "불러오기 실패");
     }
@@ -736,7 +736,7 @@ export default function SettingsPage() {
           </section>
 
           <section id="settings-backup" className="scroll-mt-28">
-            <Card title="JSON 내보내기 / 불러오기">
+            <Card title="저장하기 / 불러오기">
               <label className="mb-3 flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
@@ -747,14 +747,14 @@ export default function SettingsPage() {
               </label>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={btnPrimary} onClick={onExport}>
-                  JSON 내보내기
+                  저장하기
                 </button>
                 <button
                   type="button"
                   className={btnSecondary}
                   onClick={() => fileRef.current?.click()}
                 >
-                  JSON 불러오기
+                  불러오기
                 </button>
                 <input
                   ref={fileRef}

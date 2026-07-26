@@ -36,8 +36,8 @@ function GlobalBackupButtons() {
     );
     flash(
       data.settings.includeKeysInExport
-        ? "JSON 내보내기 완료 (API 키 포함)"
-        : "JSON 내보내기 완료 (API 키 제외)",
+        ? "저장 완료 (API 키 포함)"
+        : "저장 완료 (API 키 제외)",
     );
   }
 
@@ -52,7 +52,7 @@ function GlobalBackupButtons() {
         "JSON에 포함된 API 키도 불러올까요?\n취소를 누르면 기존 키를 유지합니다.",
       );
       importData(parsed, includeKeys);
-      flash("JSON을 불러왔습니다.");
+      flash("불러오기가 완료되었습니다.");
     } catch (error) {
       flash(error instanceof Error ? error.message : "불러오기 실패");
     }
@@ -66,14 +66,14 @@ function GlobalBackupButtons() {
           className="inline-flex min-h-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] transition-transform hover:bg-[var(--surface-pearl)] active:scale-95"
           onClick={onExport}
         >
-          JSON 내보내기
+          저장하기
         </button>
         <button
           type="button"
           className="inline-flex min-h-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] transition-transform hover:bg-[var(--surface-pearl)] active:scale-95"
           onClick={() => fileRef.current?.click()}
         >
-          JSON 불러오기
+          불러오기
         </button>
         <input
           ref={fileRef}
