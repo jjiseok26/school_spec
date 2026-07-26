@@ -440,6 +440,9 @@ export const DEFAULT_SUBJECT_NAMES = [
   "한문",
   "중국어",
   "일본어",
+  "인공지능 기초",
+  "데이터 과학",
+  "소프트웨어와 생활",
 ] as const;
 
 export function createDefaultSubjects(): Subject[] {
