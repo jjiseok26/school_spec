@@ -72,7 +72,7 @@ export async function POST(req: Request) {
         base64: arrayBufferToBase64(buffer),
       },
       json: false,
-      maxTokens: 4096,
+      maxTokens: credentials[0]?.provider === "nvidia" ? 2048 : 4096,
     });
 
     return NextResponse.json({

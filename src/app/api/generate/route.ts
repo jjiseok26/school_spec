@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   completeWithFallback,
+  estimateDraftMaxTokens,
   parseLeveledDrafts,
   type CompletionRequest,
 } from "@/lib/providers";
@@ -81,11 +82,12 @@ export async function POST(req: Request) {
       );
     }
 
+    const primaryProvider = body.credentials[0]?.provider;
     const request: CompletionRequest = {
       system,
       user,
       json: true,
-      maxTokens: 4096,
+      maxTokens: estimateDraftMaxTokens(charLimit, primaryProvider),
     };
 
     const first = await completeWithFallback(body.credentials, request);
@@ -96,8 +98,10 @@ export async function POST(req: Request) {
 
     if (parsed.options.length < DRAFT_LEVELS.length) {
       try {
-        const retry = await completeWithFallback(body.credentials, {
+        // 이미 성공한 키로만 재시도 — 처음부터 다시 폴백하면 NVIDIA 지연이 배가됨
+        const retry = await completeWithFallback([credential], {
           ...request,
+          maxTokens: estimateDraftMaxTokens(charLimit, credential.provider),
           user:
             user +
             `\n\n이전에 ${parsed.options.length}개만 나왔습니다. 최상/상/중/하 네 등급 초안을 모두 JSON으로 다시 작성하세요.`,

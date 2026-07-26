@@ -45,6 +45,13 @@ async function callOpenAiCompatible(
       ]
     : request.user;
 
+  const isNvidia = credential.provider === "nvidia";
+  // NVIDIA 무료 엔드포인트는 토큰 상한이 클수록 지연이 커짐 → 필요 분량만 요청
+  const maxTokens = Math.min(
+    request.maxTokens ?? (isNvidia ? 2048 : 4096),
+    isNvidia ? 2560 : 4096,
+  );
+
   const res = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: {
@@ -57,8 +64,10 @@ async function callOpenAiCompatible(
         { role: "system", content: request.system },
         { role: "user", content },
       ],
-      temperature: 0.7,
-      max_tokens: request.maxTokens ?? 4096,
+      temperature: isNvidia ? 0.55 : 0.7,
+      max_tokens: maxTokens,
+      // 생성 조기 종료로 불필요 디코딩 감소
+      ...(isNvidia ? { top_p: 0.9 } : {}),
       ...(request.json && credential.provider === "openai"
         ? { response_format: { type: "json_object" } }
         : {}),
@@ -68,6 +77,19 @@ async function callOpenAiCompatible(
   if (!res.ok) throw new Error(await readError(res));
   const data = await res.json();
   return String(data?.choices?.[0]?.message?.content ?? "");
+}
+
+/** 초안 생성용 max_tokens — 글자 수 제한·등급 수에 맞춰 상한을 줄인다. */
+export function estimateDraftMaxTokens(
+  charLimit: number | null,
+  provider?: Credential["provider"],
+) {
+  const perDraft = charLimit && charLimit > 0 ? charLimit : 900;
+  // 한글·JSON 오버헤드 감안: 글자당 ~1.2토큰 × 4등급 + 여유
+  const estimated = Math.ceil(perDraft * 1.2 * DRAFT_LEVELS.length + 400);
+  const cap = provider === "nvidia" ? 2560 : 4096;
+  const floor = provider === "nvidia" ? 1024 : 1536;
+  return Math.min(cap, Math.max(floor, estimated));
 }
 
 async function callGoogle(credential: Credential, request: CompletionRequest) {
