@@ -437,6 +437,9 @@ export const DEFAULT_SUBJECT_NAMES = [
   "음악",
   "미술",
   "체육",
+  "한문",
+  "중국어",
+  "일본어",
 ] as const;
 
 export function createDefaultSubjects(): Subject[] {

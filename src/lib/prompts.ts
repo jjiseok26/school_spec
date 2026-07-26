@@ -124,6 +124,7 @@ export function buildSystemPrompt(section: Section, charLimit: number | null) {
     SECTION_GUIDE[section],
     "",
     "작성 규칙:",
+    "- 모든 초안(text)은 반드시 한국어로만 작성한다. 영어·중국어·일본어 등 외국어 문장이나 단어를 섞지 않는다. 교과 특성상 꼭 필요한 용어(예: 영어 단어 시험의 문제 유형)만 예외적으로 허용한다.",
     "- 제공된 근거 자료(학생이 작성한 문서, 교사 관찰·메모, 체크된 활동, 상담·관련 자료)에 나타난 사실만 사용한다. 자료에 없는 내용은 절대 지어내지 않는다.",
     "- 사실과 관찰 중심으로 쓴다. 추측, 과장, 미사여구, 감탄, 상투적 칭찬 표현을 쓰지 않는다.",
     '- "매우", "정말", "훌륭하게", "뛰어난", "빛나는", "무궁무진한" 같은 막연한 수식어와 모호한 표현을 쓰지 않는다.',
@@ -143,7 +144,7 @@ export function buildSystemPrompt(section: Section, charLimit: number | null) {
     "출력 형식:",
     '- 반드시 {"drafts":[{"level":"최상","text":"..."},{"level":"상","text":"..."},{"level":"중","text":"..."},{"level":"하","text":"..."}]} 형태의 JSON만 출력한다.',
     "- level 값은 반드시 최상, 상, 중, 하 중 하나다.",
-    "- 각 text는 줄바꿈 없는 하나의 문단으로 작성한다.",
+    "- 각 text는 줄바꿈 없는 하나의 문단으로, 반드시 한국어로 작성한다.",
   ].join("\n");
 }
 
@@ -271,6 +272,8 @@ export function buildUserPrompt(input: GenerationInput) {
         : "위 근거 자료만 사용하여 최상/상/중/하 등급 초안 4개를 JSON으로 작성하라.",
     );
   }
+
+  parts.push("모든 초안은 반드시 한국어로만 작성한다. 영어 등 외국어로 답하지 않는다.");
 
   return parts.join("\n\n");
 }
