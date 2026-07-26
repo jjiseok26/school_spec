@@ -743,7 +743,7 @@ export default function SettingsPage() {
                   checked={data.settings.includeKeysInExport}
                   onChange={(e) => setIncludeKeysInExport(e.target.checked)}
                 />
-                내보내기에 API 키 포함
+                저장할때 API 키 포함
               </label>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={btnPrimary} onClick={onExport}>

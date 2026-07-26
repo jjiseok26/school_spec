@@ -94,7 +94,7 @@ function GlobalBackupButtons() {
           checked={data.settings.includeKeysInExport}
           onChange={(e) => setIncludeKeysInExport(e.target.checked)}
         />
-        내보내기에 API 키 포함
+        저장할때 API 키 포함
       </label>
       {toast ? (
         <p className="absolute right-0 top-full z-50 mt-2 max-w-[240px] rounded-xl bg-slate-900 px-3 py-2 text-xs text-white shadow-lg">
