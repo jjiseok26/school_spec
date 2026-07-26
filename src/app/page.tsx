@@ -64,7 +64,7 @@ export default function HomePage() {
         <Card title="빠른 준비">
           <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-slate-600">
             <li>설정에서 Google / NVIDIA / OpenAI / Claude API 키를 등록합니다.</li>
-            <li>학생·자료에서 학급 학생을 등록합니다.</li>
+            <li>학생등록에서 학급 학생을 등록합니다.</li>
             <li>해당 역할 화면에서 문서를 넣고 최상/상/중/하 초안을 생성합니다.</li>
             <li>활동열람에서 학생별 자료를 인쇄·다운로드합니다.</li>
             <li>JSON으로 내보내 다른 PC에서도 불러올 수 있습니다.</li>
@@ -74,7 +74,7 @@ export default function HomePage() {
               설정으로
             </Link>
             <Link href="/students" className={btnSecondary}>
-              학생 등록
+              학생등록
             </Link>
           </div>
         </Card>

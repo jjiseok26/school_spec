@@ -175,7 +175,7 @@ export default function StudentsPage() {
 
   return (
     <AppShell
-      title="학생 · 자료"
+      title="학생등록"
       subtitle="학생을 한 명씩 추가하거나, 학급 인원만큼 한 번에 만들 수 있습니다."
     >
       <Card title="학생 추가">

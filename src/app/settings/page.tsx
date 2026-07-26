@@ -679,7 +679,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setModelForm((f) => ({ ...f, modelId: e.target.value }))
                     }
-                    placeholder="예: gemini-2.5-pro, gpt-4.1"
+                    placeholder="예: gemini-3.5-flash, gpt-4.1"
                   />
                 </Field>
                 <Field label="표시 이름(선택)">

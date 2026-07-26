@@ -297,7 +297,7 @@ export default function ClubPage() {
 
               {classStudents.length === 0 ? (
                 <p className="text-sm text-[var(--ink-muted-48)]">
-                  이 학급에 학생이 없습니다. 학생 자료에서 먼저 등록하세요.
+                  이 학급에 학생이 없습니다. 학생등록에서 먼저 등록하세요.
                 </p>
               ) : (
                 <ul className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-[var(--hairline)] p-2">

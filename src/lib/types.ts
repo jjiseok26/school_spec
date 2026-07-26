@@ -166,7 +166,7 @@ export const PROVIDER_LABELS: Record<Provider, string> = {
 };
 
 export const DEFAULT_MODELS: Record<Provider, string> = {
-  google: "gemini-2.5-flash",
+  google: "gemini-3.6-flash",
   // 70B급은 무료 엔드포인트에서 매우 느림 → 기본은 빠른 Nano
   nvidia: "nvidia/nvidia-nemotron-nano-9b-v2",
   openai: "gpt-4o-mini",
@@ -180,13 +180,15 @@ export const BUILT_IN_MODELS: Record<
 > = {
   google: [
     { modelId: "gemini-3.6-flash", label: "Gemini 3.6 Flash" },
+    { modelId: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
     {
       modelId: "gemini-3.5-flash-lite",
       label: "Gemini 3.5 Flash-Lite",
     },
-    { modelId: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { modelId: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-    { modelId: "gemini-2.0-flash", label: "Gemini 2.0 Flash" },
+    {
+      modelId: "gemini-3.1-flash-lite",
+      label: "Gemini 3.1 Flash-Lite",
+    },
   ],
   nvidia: [
     // Free Endpoint · 빠른 모델 우선 (build.nvidia.com)

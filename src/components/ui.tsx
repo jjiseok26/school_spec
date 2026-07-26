@@ -9,7 +9,7 @@ import { downloadTextFile } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "홈" },
-  { href: "/students", label: "학생·자료" },
+  { href: "/students", label: "학생등록" },
   { href: "/subject", label: "교과특기" },
   { href: "/behavior", label: "행발" },
   { href: "/creative", label: "창체" },
