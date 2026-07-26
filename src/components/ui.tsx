@@ -107,6 +107,12 @@ export function AppShell({
       <main className="mx-auto max-w-[1080px] px-4 py-6 sm:px-6 sm:py-10">
         {children}
       </main>
+
+      <footer className="no-print border-t border-[var(--hairline)] bg-[var(--parchment)]">
+        <div className="mx-auto max-w-[1080px] px-4 py-6 text-center text-[13px] text-[var(--ink-muted-48)] sm:px-6">
+          © {new Date().getFullYear()} Jiseok. All rights reserved.
+        </div>
+      </footer>
     </div>
   );
 }
