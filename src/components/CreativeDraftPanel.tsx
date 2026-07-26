@@ -8,10 +8,12 @@ import {
 } from "@/lib/prompts";
 import {
   ACTIVITY_CATEGORIES,
+  DRAFT_LEVELS,
   PROVIDER_LABELS,
   SECTION_LABELS,
   type ActivityCategory,
   type Draft,
+  type DraftLevel,
   type OfficerRole,
 } from "@/lib/types";
 import { copyText, orderCredentials } from "@/lib/utils";
@@ -141,51 +143,117 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
       }));
   }
 
+  function composeLevelOptions(blocks: string[][]): string[] {
+    return DRAFT_LEVELS.map((_, i) =>
+      blocks
+        .map((block) => block[i]?.trim() ?? "")
+        .filter(Boolean)
+        .join(" "),
+    );
+  }
+
+  /** 임원·일정을 분리 생성한 뒤, 영역 최종 초안은 임원(앞)+일정(뒤)로 이어 붙인다. */
+  async function runCategoryGeneration(category: ActivityCategory) {
+    const activities = activitiesFor(category);
+    const offs = category === "autonomy" ? officers : [];
+    if (!activities.length && !offs.length) {
+      throw new Error(
+        `${SECTION_LABELS[category]}: 체크된 일정${category === "autonomy" ? "·임원" : ""}이 없습니다.`,
+      );
+    }
+
+    const officerBlocks: string[][] = [];
+    let levels: DraftLevel[] | undefined;
+    let used:
+      | { provider: Draft["provider"]; model: string }
+      | undefined;
+
+    if (offs.length) {
+      for (const officer of offs) {
+        setBusyKey(`off:${officer.id}`);
+        const json = await callGenerate(
+          {
+            section: "autonomy",
+            documents: docsFor("autonomy"),
+            officers: [
+              {
+                title: officer.title,
+                startDate: officer.startDate,
+                endDate: officer.endDate,
+                observation: officer.observation,
+              },
+            ],
+            charLimit: data.settings.charLimits.autonomy,
+            credentials,
+          },
+          notePriority,
+        );
+        upsertDraft({
+          studentId,
+          section: "autonomy",
+          documentId: officerDraftKey(officer.id),
+          options: json.drafts,
+          levels: json.levels,
+          provider: json.used?.provider,
+          model: json.used?.model,
+        });
+        officerBlocks.push(json.drafts);
+        levels = json.levels ?? levels;
+        if (json.used) {
+          used = { provider: json.used.provider, model: json.used.model };
+        }
+      }
+    }
+
+    let activityOptions: string[] | undefined;
+    if (activities.length) {
+      setBusyKey(`cat:${category}`);
+      const json = await callGenerate(
+        {
+          section: category,
+          documents: docsFor(category),
+          checkedActivities: activities.map((a) => ({
+            date: a.date,
+            title: a.title,
+            note: a.note,
+            observation: a.observation,
+          })),
+          charLimit: data.settings.charLimits[category],
+          credentials,
+        },
+        notePriority,
+      );
+      activityOptions = json.drafts;
+      levels = json.levels ?? levels;
+      if (json.used) {
+        used = { provider: json.used.provider, model: json.used.model };
+      }
+    }
+
+    const options = composeLevelOptions([
+      ...(officerBlocks.length ? [composeLevelOptions(officerBlocks)] : []),
+      ...(activityOptions ? [activityOptions] : []),
+    ]);
+
+    upsertDraft({
+      studentId,
+      section: category,
+      options,
+      levels: levels ?? [...DRAFT_LEVELS],
+      provider: used?.provider,
+      model: used?.model,
+    });
+  }
+
   async function generateCategory(category: ActivityCategory) {
     if (!credentials.length) {
       setError("설정에서 API 키를 등록하세요.");
       return;
     }
-    const activities = activitiesFor(category);
-    const offs = category === "autonomy" ? officers : [];
-    if (!activities.length && !offs.length) {
-      setError(
-        `${SECTION_LABELS[category]}: 체크된 일정${category === "autonomy" ? "·임원" : ""}이 없습니다.`,
-      );
-      return;
-    }
     setBusyKey(`cat:${category}`);
     setError("");
     try {
-      const json = await callGenerate({
-        section: category,
-        documents: docsFor(category),
-        checkedActivities: activities.map((a) => ({
-          date: a.date,
-          title: a.title,
-          note: a.note,
-          observation: a.observation,
-        })),
-        officers:
-          category === "autonomy"
-            ? offs.map((o) => ({
-                title: o.title,
-                startDate: o.startDate,
-                endDate: o.endDate,
-                observation: o.observation,
-              }))
-            : undefined,
-        charLimit: data.settings.charLimits[category],
-        credentials,
-      }, notePriority);
-      upsertDraft({
-        studentId,
-        section: category,
-        options: json.drafts,
-        levels: json.levels,
-        provider: json.used?.provider,
-        model: json.used?.model,
-      });
+      await runCategoryGeneration(category);
     } catch (err) {
       setError(err instanceof Error ? err.message : "생성 실패");
     } finally {
@@ -205,35 +273,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
       if (!activities.length && !offs.length) continue;
       setBusyKey(`cat:${category}`);
       try {
-        const json = await callGenerate({
-          section: category,
-          documents: docsFor(category),
-          checkedActivities: activities.map((a) => ({
-            date: a.date,
-            title: a.title,
-            note: a.note,
-            observation: a.observation,
-          })),
-          officers:
-            category === "autonomy"
-              ? offs.map((o) => ({
-                  title: o.title,
-                  startDate: o.startDate,
-                  endDate: o.endDate,
-                  observation: o.observation,
-                }))
-              : undefined,
-          charLimit: data.settings.charLimits[category],
-          credentials,
-        }, notePriority);
-        upsertDraft({
-          studentId,
-          section: category,
-          options: json.drafts,
-          levels: json.levels,
-          provider: json.used?.provider,
-          model: json.used?.model,
-        });
+        await runCategoryGeneration(category);
       } catch (err) {
         setError(
           err instanceof Error
@@ -412,22 +452,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
     const offs = category === "autonomy" ? officers : [];
     const pieces: { title: string; text: string; teacherNote: string }[] = [];
 
-    for (const item of activities) {
-      const draft = findDraft(
-        data.drafts,
-        studentId,
-        category,
-        undefined,
-        scheduleDraftKey(item.id),
-      );
-      const text = draft?.edited.trim() || "";
-      if (!text) continue;
-      pieces.push({
-        title: item.title || "일정",
-        text,
-        teacherNote: "",
-      });
-    }
+    // 임원 초안을 앞에 두고, 일정 초안을 뒤에 둠
     for (const officer of offs) {
       const draft = findDraft(
         data.drafts,
@@ -440,6 +465,22 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
       if (!text) continue;
       pieces.push({
         title: formatOfficerLabel(officer),
+        text,
+        teacherNote: "",
+      });
+    }
+    for (const item of activities) {
+      const draft = findDraft(
+        data.drafts,
+        studentId,
+        category,
+        undefined,
+        scheduleDraftKey(item.id),
+      );
+      const text = draft?.edited.trim() || "";
+      if (!text) continue;
+      pieces.push({
+        title: item.title || "일정",
         text,
         teacherNote: "",
       });
@@ -499,8 +540,8 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
       <Card title="창체 초안 생성">
         <p className="mb-3 text-sm text-[var(--ink-muted-48)]">
           체크한 일정·임원을 항목별로 초안을 만들거나, 자율·진로·봉사 영역별로 한
-          번에 생성할 수 있습니다. 「전체」에서는 세 영역을 모아 보고 일괄
-          생성할 수 있습니다.
+          번에 생성할 수 있습니다. 임원 활동은 일정과 따로 작성되며, 영역 최종
+          특기사항에서는 임원 내용이 앞에 이어집니다.
         </p>
 
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
