@@ -366,24 +366,18 @@ export default function StudentsPage() {
                             className="border-b border-[var(--hairline)]"
                           >
                             <td className="px-2 py-2">
-                              <input
-                                className={inputClass}
+                              <DeferredStudentInput
                                 value={s.className}
-                                onChange={(e) =>
-                                  updateStudent(s.id, {
-                                    className: e.target.value,
-                                  })
+                                onCommit={(className) =>
+                                  updateStudent(s.id, { className })
                                 }
                               />
                             </td>
                             <td className="px-2 py-2">
-                              <input
-                                className={inputClass}
+                              <DeferredStudentInput
                                 value={s.number}
-                                onChange={(e) =>
-                                  updateStudent(s.id, {
-                                    number: e.target.value,
-                                  })
+                                onCommit={(number) =>
+                                  updateStudent(s.id, { number })
                                 }
                               />
                             </td>
@@ -446,6 +440,45 @@ export default function StudentsPage() {
         </Card>
       </div>
     </AppShell>
+  );
+}
+
+function DeferredStudentInput({
+  value,
+  onCommit,
+}: {
+  value: string;
+  onCommit: (next: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setDraft(value);
+  }, [value, focused]);
+
+  function commit() {
+    if (draft === value) return;
+    onCommit(draft);
+  }
+
+  return (
+    <input
+      className={inputClass}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => {
+        setFocused(false);
+        commit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        commit();
+        (e.target as HTMLInputElement).blur();
+      }}
+    />
   );
 }
 
