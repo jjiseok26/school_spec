@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { findDraft, useAppStore } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
 import { SECTION_LABELS, type Section } from "@/lib/types";
 import { btnPrimary, btnSecondary, Card, Field, inputClass } from "./ui";
 
@@ -74,17 +74,43 @@ export function ClassExcelPanel({
           ),
         );
 
-      const includeData = students.some((student) => {
-        const hasDoc = data.documents.some(
+      function docsForStudent(studentId: string) {
+        return data.documents.filter(
           (doc) =>
-            doc.studentId === student.id &&
+            doc.studentId === studentId &&
             doc.section === section &&
-            (subjectId ? doc.subjectId === subjectId : true) &&
-            (doc.text.trim() || doc.teacherNote.trim() || doc.title.trim()),
+            (subjectId ? doc.subjectId === subjectId : true),
         );
-        if (hasDoc) return true;
-        const merged = findDraft(data.drafts, student.id, section, subjectId);
-        return Boolean(merged?.edited.trim());
+      }
+
+      function draftsForStudent(studentId: string) {
+        return data.drafts.filter(
+          (draft) =>
+            draft.studentId === studentId &&
+            draft.section === section &&
+            (subjectId ? draft.subjectId === subjectId : !draft.subjectId),
+        );
+      }
+
+      function draftText(draft: { edited?: string; options?: string[] } | undefined) {
+        const edited = draft?.edited?.trim() ?? "";
+        if (edited) return edited;
+        return (draft?.options ?? []).find((t) => t.trim())?.trim() ?? "";
+      }
+
+      const includeData = students.some((student) => {
+        const docs = docsForStudent(student.id);
+        if (
+          docs.some(
+            (doc) =>
+              doc.text.trim() ||
+              doc.teacherNote.trim() ||
+              doc.title.trim(),
+          )
+        ) {
+          return true;
+        }
+        return draftsForStudent(student.id).some((d) => Boolean(draftText(d)));
       });
 
       const { Workbook } = await import("exceljs");
@@ -149,86 +175,80 @@ export function ClassExcelPanel({
       });
       headerRow.height = 22;
 
+      function styleDataRow(row: import("exceljs").Row) {
+        row.eachCell({ includeEmpty: true }, (cell, col) => {
+          cell.font = { name: "맑은 고딕", size: 10 };
+          cell.alignment = {
+            vertical: "top",
+            horizontal: col <= 2 ? "center" : "left",
+            wrapText: col >= 3,
+          };
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFF0F0F0" } },
+            bottom: { style: "thin", color: { argb: "FFF0F0F0" } },
+            left: { style: "thin", color: { argb: "FFF0F0F0" } },
+            right: { style: "thin", color: { argb: "FFF0F0F0" } },
+          };
+        });
+      }
+
       for (const student of students) {
-        const emptyRow = {
-          number: student.number,
-          name: student.name,
-          title: "",
-          text: "",
-          note: "",
-          final: "",
+        // 배열로 넣어 key 매핑 누락으로 교사메모·초안이 비는 문제를 방지
+        const pushRow = (
+          title: string,
+          text: string,
+          note: string,
+          final: string,
+        ) => {
+          const row = ws.addRow([
+            student.number,
+            student.name,
+            title,
+            text,
+            note,
+            final,
+          ]);
+          styleDataRow(row);
         };
 
-        let rows = [emptyRow];
-        if (includeData) {
-          const docs = data.documents.filter(
-            (doc) =>
-              doc.studentId === student.id &&
-              doc.section === section &&
-              (subjectId ? doc.subjectId === subjectId : true),
-          );
-          const merged = findDraft(
-            data.drafts,
-            student.id,
-            section,
-            subjectId,
-          );
-          const finalText = merged?.edited ?? "";
-          rows = docs.length
-            ? docs.map((doc, i) => ({
-                number: student.number,
-                name: student.name,
-                title: doc.title,
-                text: doc.text,
-                note: doc.teacherNote,
-                final: i === 0 ? finalText : "",
-              }))
-            : [{ ...emptyRow, final: finalText }];
+        if (!includeData) {
+          pushRow("", "", "", "");
+          continue;
         }
 
-        for (const rowData of rows) {
-          const row = ws.addRow(rowData);
-          row.eachCell({ includeEmpty: true }, (cell, col) => {
-            cell.font = { name: "맑은 고딕", size: 10 };
-            cell.alignment = {
-              vertical: "top",
-              horizontal: col <= 2 ? "center" : "left",
-              wrapText: col >= 3,
-            };
-            cell.border = {
-              top: { style: "thin", color: { argb: "FFF0F0F0" } },
-              bottom: { style: "thin", color: { argb: "FFF0F0F0" } },
-              left: { style: "thin", color: { argb: "FFF0F0F0" } },
-              right: { style: "thin", color: { argb: "FFF0F0F0" } },
-            };
+        const docs = docsForStudent(student.id);
+        const studentDrafts = draftsForStudent(student.id);
+        const mergedDraft = studentDrafts.find((d) => !d.documentId);
+        const mergedText = draftText(mergedDraft);
+
+        if (docs.length) {
+          docs.forEach((doc, i) => {
+            const docDraft = studentDrafts.find(
+              (d) => d.documentId === doc.id,
+            );
+            // 문서별 초안 우선, 없으면 첫 행에 수합 초안
+            const final =
+              draftText(docDraft) || (i === 0 ? mergedText : "");
+            pushRow(doc.title, doc.text, doc.teacherNote, final);
           });
+        } else if (mergedText || studentDrafts.some((d) => draftText(d))) {
+          if (mergedText) {
+            pushRow("", "", "", mergedText);
+          } else {
+            for (const d of studentDrafts) {
+              const text = draftText(d);
+              if (text) pushRow("", "", "", text);
+            }
+          }
+        } else {
+          pushRow("", "", "", "");
         }
       }
 
       if (students.length === 0) {
         for (let i = 0; i < 10; i++) {
-          const row = ws.addRow({
-            number: "",
-            name: "",
-            title: "",
-            text: "",
-            note: "",
-            final: "",
-          });
-          row.eachCell({ includeEmpty: true }, (cell, col) => {
-            cell.font = { name: "맑은 고딕", size: 10 };
-            cell.alignment = {
-              vertical: "top",
-              horizontal: col <= 2 ? "center" : "left",
-              wrapText: col >= 3,
-            };
-            cell.border = {
-              top: { style: "thin", color: { argb: "FFF0F0F0" } },
-              bottom: { style: "thin", color: { argb: "FFF0F0F0" } },
-              left: { style: "thin", color: { argb: "FFF0F0F0" } },
-              right: { style: "thin", color: { argb: "FFF0F0F0" } },
-            };
-          });
+          const row = ws.addRow(["", "", "", "", "", ""]);
+          styleDataRow(row);
         }
       }
 
@@ -247,7 +267,7 @@ export function ClassExcelPanel({
       URL.revokeObjectURL(url);
       setMessage(
         includeData
-          ? `${className}반 ${students.length}명의 자료를 포함해 내려받았습니다.`
+          ? `${className}반 ${students.length}명의 자료(교사 메모·초안 포함)를 내려받았습니다.`
           : `${className}반 자료가 없어 빈 입력 양식을 내려받았습니다.`,
       );
     } catch (error) {
@@ -351,7 +371,7 @@ export function ClassExcelPanel({
         </Field>
         <Field
           label={`${sectionLabel} 자료`}
-          hint="다운로드 시 해당 학급에 문서·수합 초안이 있으면 데이터를 채워 주고, 없으면 번호·이름만 있는 빈 양식을 내려줍니다. 채운 뒤 업로드하면 같은 제목은 덮어쓰고 새 제목은 추가됩니다."
+          hint="다운로드 시 해당 학급의 학생 작성·교사 메모·문서별/수합 초안을 함께 채웁니다. 자료가 없으면 번호·이름만 있는 빈 양식을 내려줍니다. 채운 뒤 업로드하면 같은 제목은 덮어쓰고 새 제목은 추가됩니다."
         >
           <div className="flex flex-wrap gap-2">
             <button
