@@ -714,6 +714,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
                               ? `관찰: ${officer.observation.trim()}`
                               : "관찰 없음"
                           }
+                          charLimit={data.settings.charLimits.autonomy}
                           draft={draft}
                           busy={busyKey === `off:${officer.id}`}
                           disabled={busy}
@@ -753,6 +754,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
                         <ItemDraftBlock
                           key={item.id}
                           label={date ? `${title}(${date})` : title}
+                          charLimit={data.settings.charLimits[category]}
                           hint={
                             item.observation.trim()
                               ? `관찰: ${item.observation.trim()}`
@@ -794,6 +796,7 @@ export function CreativeDraftPanel({ studentId }: { studentId: string }) {
                     <div className="space-y-3">
                       <DocumentDraftEditor
                         draft={merged}
+                        charLimit={data.settings.charLimits[category]}
                         onSelect={(i) => selectDraftOption(merged.id, i)}
                         onEdit={(text) => editDraft(merged.id, text)}
                         onConfirm={() => confirmDraft(merged.id)}
@@ -821,6 +824,7 @@ function ItemDraftBlock({
   label,
   hint,
   draft,
+  charLimit,
   busy,
   disabled,
   onGenerate,
@@ -831,6 +835,7 @@ function ItemDraftBlock({
   label: string;
   hint: string;
   draft?: Draft;
+  charLimit?: string;
   busy: boolean;
   disabled: boolean;
   onGenerate: () => void;
@@ -861,6 +866,7 @@ function ItemDraftBlock({
       ) : (
         <DocumentDraftEditor
           draft={draft}
+          charLimit={charLimit}
           onSelect={onSelect}
           onEdit={onEdit}
           onConfirm={onConfirm}

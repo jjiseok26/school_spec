@@ -11,6 +11,7 @@ import {
   Field,
   btnPrimary,
   btnSecondary,
+  btnDanger,
   inputClass,
 } from "@/components/ui";
 import { useAppStore } from "@/lib/store";
@@ -139,6 +140,24 @@ export default function ClubPage() {
     setSelectedIds([]);
   }
 
+  function onRemoveMemberFromClub() {
+    if (!activeClub || !studentId) return;
+    const student = data.students.find((s) => s.id === studentId);
+    const label = student
+      ? `${student.number ? `${student.number}번 ` : ""}${student.name}`
+      : "이 학생";
+    if (
+      !window.confirm(
+        `「${label}」을(를) 「${activeClub.name}」 동아리원에서 제외할까요?`,
+      )
+    ) {
+      return;
+    }
+    removeClubMember(activeClub.id, studentId);
+    setStudentId("");
+    setMessage("동아리원에서 제외했습니다.");
+  }
+
   return (
     <AppShell
       title="동아리활동"
@@ -157,12 +176,8 @@ export default function ClubPage() {
             {studentId && activeClub && memberSet.has(studentId) ? (
               <button
                 type="button"
-                className="mt-3 text-xs text-rose-600"
-                onClick={() => {
-                  removeClubMember(activeClub.id, studentId);
-                  setStudentId("");
-                  setMessage("동아리원에서 제외했습니다.");
-                }}
+                className={`${btnDanger} mt-3 w-full`}
+                onClick={onRemoveMemberFromClub}
               >
                 이 학생을 동아리원에서 제외
               </button>

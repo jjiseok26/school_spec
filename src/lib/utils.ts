@@ -7,6 +7,17 @@ export function parseCharLimit(value: string | undefined | null) {
   return Math.floor(n);
 }
 
+/** AI 초안 본문 글자 수 표시 (설정 제한과 함께) */
+export function formatDraftCharCount(
+  text: string,
+  charLimit?: string | null,
+) {
+  const count = text.length;
+  const limit = parseCharLimit(charLimit);
+  if (limit) return `현재 ${count}자 / 제한 ${limit}자`;
+  return `현재 ${count}자 (무제한)`;
+}
+
 export function orderCredentials(
   apiKeys: ApiKeyEntry[],
   _activeApiKeyId?: string | null,

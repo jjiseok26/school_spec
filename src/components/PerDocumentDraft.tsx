@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { findDraft, useAppStore } from "@/lib/store";
 import type { Draft, Section, StudentDoc } from "@/lib/types";
 import { DRAFT_LEVEL_HINTS, PROVIDER_LABELS } from "@/lib/types";
-import { orderCredentials } from "@/lib/utils";
+import { orderCredentials, formatDraftCharCount } from "@/lib/utils";
 import {
   btnPrimary,
   btnSecondary,
@@ -133,6 +133,7 @@ export function PerDocumentDraft({
       ) : (
         <DocumentDraftEditor
           draft={draft}
+          charLimit={data.settings.charLimits[section]}
           onSelect={(index) => selectDraftOption(draft.id, index)}
           onEdit={(text) => editDraft(draft.id, text)}
           onConfirm={() => confirmDraft(draft.id)}
@@ -144,11 +145,13 @@ export function PerDocumentDraft({
 
 export function DocumentDraftEditor({
   draft,
+  charLimit,
   onSelect,
   onEdit,
   onConfirm,
 }: {
   draft: Draft;
+  charLimit?: string;
   onSelect: (index: number) => void;
   onEdit: (text: string) => void;
   onConfirm: () => void;
@@ -183,6 +186,9 @@ export function DocumentDraftEditor({
                     선택됨
                   </span>
                 ) : null}
+                <span className="ml-auto text-xs tabular-nums text-[var(--ink-muted-48)]">
+                  {option.length}자
+                </span>
               </div>
               <p className="line-clamp-4 whitespace-pre-wrap text-[var(--ink-muted-80)]">
                 {option}
@@ -197,6 +203,9 @@ export function DocumentDraftEditor({
           value={draft.edited}
           onChange={(e) => onEdit(e.target.value)}
         />
+        <div className="mt-1 text-xs text-[var(--ink-muted-48)]">
+          {formatDraftCharCount(draft.edited, charLimit)}
+        </div>
       </Field>
       <div className="flex flex-wrap items-center gap-2">
         <button

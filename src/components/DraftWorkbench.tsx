@@ -10,7 +10,7 @@ import {
   DRAFT_LEVEL_HINTS,
   PROVIDER_LABELS,
 } from "@/lib/types";
-import { copyText, orderCredentials } from "@/lib/utils";
+import { copyText, formatDraftCharCount, orderCredentials } from "@/lib/utils";
 import { DocumentDraftEditor } from "./PerDocumentDraft";
 import {
   btnPrimary,
@@ -755,6 +755,7 @@ export function DraftWorkbench({
                 ) : (
                   <DocumentDraftEditor
                     draft={draft}
+                    charLimit={data.settings.charLimits[section]}
                     onSelect={(index) => selectDraftOption(draft.id, index)}
                     onEdit={(text) => editDraft(draft.id, text)}
                     onConfirm={() => confirmDraft(draft.id)}
@@ -857,6 +858,9 @@ function DraftEditor({
                     선택됨
                   </span>
                 ) : null}
+                <span className="ml-auto text-xs tabular-nums text-[var(--ink-muted-48)]">
+                  {option.length}자
+                </span>
               </div>
               <p className="whitespace-pre-wrap text-[var(--ink)]">{option}</p>
             </button>
@@ -871,8 +875,7 @@ function DraftEditor({
           onChange={(e) => onEdit(e.target.value)}
         />
         <div className="mt-1 text-xs text-[var(--ink-muted-48)]">
-          현재 {draft.edited.length}자
-          {charLimit ? ` / 제한 ${charLimit}자` : " (무제한)"}
+          {formatDraftCharCount(draft.edited, charLimit)}
         </div>
       </Field>
 

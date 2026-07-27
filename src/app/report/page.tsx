@@ -9,6 +9,7 @@ import {
   formatOfficerLabel,
 } from "@/lib/prompts";
 import { SECTION_LABELS, type Section } from "@/lib/types";
+import { formatDraftCharCount } from "@/lib/utils";
 
 const SECTION_ORDER: Section[] = [
   "subject",
@@ -99,6 +100,7 @@ function ReportPageInner() {
   const studentLabel = student
     ? `${student.className} ${student.number ? `${student.number}번 ` : ""}${student.name}`
     : "";
+  const selectedClassLabel = selectedClass || "전체";
 
   const subjectName = (id?: string) => {
     if (!id) return null;
@@ -141,9 +143,13 @@ function ReportPageInner() {
   }
 
   /** 영역별 자료를 과목(또는 동아리) 단위로 묶고, 수합 → 근거 순으로 정렬 */
-  function groupSectionContent(section: Section) {
-    const sectionDocs = documents.filter((d) => d.section === section);
-    const sectionDrafts = drafts.filter((d) => d.section === section);
+  function groupSectionContentFor(section: Section, targetStudentId: string) {
+    const sectionDocs = data.documents.filter(
+      (d) => d.studentId === targetStudentId && d.section === section,
+    );
+    const sectionDrafts = data.drafts.filter(
+      (d) => d.studentId === targetStudentId && d.section === section,
+    );
     const keys = [
       ...new Set([
         ...sectionDocs.map((d) => d.subjectId ?? ""),
@@ -172,6 +178,11 @@ function ReportPageInner() {
           !mergedDrafts.length && !groupDocs.length && !docDrafts.length,
       };
     });
+  }
+
+  function groupSectionContent(section: Section) {
+    if (!studentId) return [];
+    return groupSectionContentFor(section, studentId);
   }
 
   function sectionIsEmpty(section: Section) {
@@ -269,8 +280,256 @@ function ReportPageInner() {
     window.print();
   }
 
+  function classSectionRows(section: Section) {
+    return roster
+      .map((item) => {
+        const groups = groupSectionContentFor(section, item.id);
+        const hasContent = groups.some((group) => !group.empty);
+        return {
+          student: item,
+          groups,
+          hasContent,
+        };
+      })
+      .filter((item) => item.hasContent);
+  }
+
+  function classSectionIsEmpty(section: Section) {
+    return classSectionRows(section).length === 0;
+  }
+
+  async function onDownloadClassExcel(section: Section) {
+    if (!selectedClass || classSectionIsEmpty(section)) return;
+    const XLSX = await import("xlsx");
+    const rows: (string | number)[][] = [
+      [
+        "학급",
+        "번호",
+        "이름",
+        "영역",
+        "종류",
+        "제목/과목",
+        "수준",
+        "확정",
+        "학생 작성",
+        "교사 메모",
+      ],
+    ];
+
+    for (const item of classSectionRows(section)) {
+      const className = item.student.className;
+      const number = item.student.number;
+      const name = item.student.name;
+      for (const group of item.groups) {
+        if (group.empty) continue;
+        const subj = group.name;
+
+        for (const draft of group.mergedDrafts) {
+          const level =
+            draft.selected != null
+              ? draft.levels?.[draft.selected]
+              : undefined;
+          rows.push([
+            className,
+            number,
+            name,
+            SECTION_LABELS[section],
+            "최종 수합",
+            subj ? `수합 초안 (${subj})` : "수합 초안",
+            level ?? "",
+            draft.confirmed ? "확정" : "",
+            draft.edited.trim() || "(내용 없음)",
+            "",
+          ]);
+        }
+
+        for (const doc of group.docs) {
+          rows.push([
+            className,
+            number,
+            name,
+            SECTION_LABELS[section],
+            "근거 문서",
+            `${doc.title || "제목 없음"}${subj ? ` (${subj})` : ""}`,
+            "",
+            "",
+            doc.text.trim(),
+            doc.teacherNote.trim(),
+          ]);
+        }
+
+        for (const draft of group.docDrafts) {
+          const level =
+            draft.selected != null
+              ? draft.levels?.[draft.selected]
+              : undefined;
+          const slotTitle = draftSlotTitle(draft.documentId);
+          const kind = draftSlotKind(draft.documentId);
+          rows.push([
+            className,
+            number,
+            name,
+            SECTION_LABELS[section],
+            "근거 초안",
+            `${slotTitle || `${kind} 초안`}${subj ? ` (${subj})` : ""}`,
+            level ?? "",
+            draft.confirmed ? "확정" : "",
+            draft.edited.trim() || "(내용 없음)",
+            "",
+          ]);
+        }
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 10 },
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 14 },
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 6 },
+      { wch: 6 },
+      { wch: 45 },
+      { wch: 36 },
+    ];
+    const wb = XLSX.utils.book_new();
+    const sheetName = `${selectedClassLabel}_${SECTION_LABELS[section]}`.slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const safeSection = SECTION_LABELS[section].replace(/[\\/:*?"<>|]/g, "_");
+    XLSX.writeFile(wb, `${selectedClassLabel}_${safeSection}_반전체.xlsx`);
+  }
+
+  function escapeHtml(text: string) {
+    return text
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function onPrintClassSection(section: Section) {
+    if (!selectedClass || classSectionIsEmpty(section)) return;
+    const rows = classSectionRows(section);
+    const title = `${selectedClassLabel} · ${SECTION_LABELS[section]} 반전체 자료`;
+
+    const body = rows
+      .map(({ student: item, groups }) => {
+        const studentHeader = `${item.className} ${item.number ? `${item.number}번 ` : ""}${item.name}`;
+        const groupsHtml = groups
+          .filter((group) => !group.empty)
+          .map((group) => {
+            const mergedHtml = group.mergedDrafts
+              .map((draft) => {
+                const level =
+                  draft.selected != null
+                    ? draft.levels?.[draft.selected]
+                    : undefined;
+                const meta = [
+                  "수합 초안",
+                  level ? `[${level}]` : "",
+                  draft.confirmed ? "[확정]" : "",
+                  `(${draft.edited.length}자)`,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return `<div class="block"><p class="label">${escapeHtml(meta)}</p><p>${escapeHtml(
+                  draft.edited.trim() || "(내용 없음)",
+                )}</p></div>`;
+              })
+              .join("");
+
+            const docsHtml = group.docs
+              .map((doc) => {
+                const parts = [
+                  doc.text.trim()
+                    ? `<p class="sub">학생 작성</p><p>${escapeHtml(doc.text.trim())}</p>`
+                    : "",
+                  doc.teacherNote.trim()
+                    ? `<p class="sub">교사 메모</p><p>${escapeHtml(doc.teacherNote.trim())}</p>`
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join("");
+                return `<div class="block"><p class="label">문서: ${escapeHtml(
+                  doc.title || "제목 없음",
+                )}</p>${parts}</div>`;
+              })
+              .join("");
+
+            const docDraftsHtml = group.docDrafts
+              .map((draft) => {
+                const level =
+                  draft.selected != null
+                    ? draft.levels?.[draft.selected]
+                    : undefined;
+                const slotTitle = draftSlotTitle(draft.documentId);
+                const kind = draftSlotKind(draft.documentId);
+                const meta = [
+                  `${kind} 초안${slotTitle ? ` · ${slotTitle}` : ""}`,
+                  level ? `[${level}]` : "",
+                  draft.confirmed ? "[확정]" : "",
+                  `(${draft.edited.length}자)`,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return `<div class="block"><p class="label">${escapeHtml(meta)}</p><p>${escapeHtml(
+                  draft.edited.trim() || "(내용 없음)",
+                )}</p></div>`;
+              })
+              .join("");
+
+            return `<section class="group">
+              ${group.name ? `<h3>${escapeHtml(group.name)}</h3>` : ""}
+              ${mergedHtml}
+              ${docsHtml}
+              ${docDraftsHtml}
+            </section>`;
+          })
+          .join("");
+
+        return `<article class="student">
+          <h2>${escapeHtml(studentHeader)}</h2>
+          ${groupsHtml}
+        </article>`;
+      })
+      .join("");
+
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    if (!win) return;
+    win.document.write(`<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(title)}</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; color: #111; line-height: 1.6; }
+      h1 { font-size: 22px; margin: 0 0 8px; }
+      h2 { font-size: 18px; margin: 24px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ddd; }
+      h3 { font-size: 15px; margin: 16px 0 8px; }
+      .meta { color: #666; font-size: 12px; margin-bottom: 20px; }
+      .group { margin-bottom: 16px; }
+      .block { margin: 10px 0; padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; }
+      .label, .sub { font-weight: 700; margin: 0 0 4px; }
+      p { margin: 0 0 6px; white-space: pre-wrap; }
+      @media print { body { margin: 12mm; } .student { break-inside: avoid; } }
+    </style>
+  </head>
+  <body>
+    <h1>${escapeHtml(title)}</h1>
+    <p class="meta">출력일: ${escapeHtml(new Date().toLocaleString("ko-KR"))}</p>
+    ${body}
+  </body>
+</html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   const activeSectionLabel = SECTION_LABELS[viewTab];
   const activeSectionEmpty = sectionIsEmpty(viewTab);
+  const activeClassSectionEmpty = classSectionIsEmpty(viewTab);
 
   function confirmDelete(label: string) {
     return window.confirm(`「${label}」을(를) 삭제할까요?`);
@@ -366,6 +625,47 @@ function ReportPageInner() {
 
         {/* 오른쪽: 선택 학생의 활동 */}
         <div>
+          {selectedClass ? (
+            <Card title={`학급 전체 출력 · ${selectedClassLabel}`}>
+              <p className="mb-3 text-sm text-[var(--ink-muted-48)]">
+                현재 선택한 영역 탭 기준으로 반 전체 자료를 인쇄하거나 Excel로
+                내보냅니다.
+              </p>
+              <SegmentedTabs
+                className="mb-3"
+                tabs={SECTION_ORDER.map((section) => ({
+                  id: section,
+                  label: SECTION_LABELS[section],
+                }))}
+                value={viewTab}
+                onChange={setViewTab}
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  onClick={() => onPrintClassSection(viewTab)}
+                  disabled={activeClassSectionEmpty}
+                >
+                  {activeSectionLabel} 반전체 인쇄 · PDF
+                </button>
+                <button
+                  type="button"
+                  className={btnSecondary}
+                  onClick={() => void onDownloadClassExcel(viewTab)}
+                  disabled={activeClassSectionEmpty}
+                >
+                  {activeSectionLabel} 반전체 Excel보내기
+                </button>
+                {activeClassSectionEmpty ? (
+                  <span className="text-sm text-[var(--ink-muted-48)]">
+                    이 학급의 선택한 영역에는 내보낼 자료가 없습니다.
+                  </span>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
+
           {!student ? (
             <Card>
               <p className="text-sm text-[var(--ink-muted-48)]">
@@ -500,6 +800,12 @@ function ReportPageInner() {
                                             <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">
                                               {draft.edited || "(내용 없음)"}
                                             </p>
+                                            <p className="mt-2 text-xs text-[var(--ink-muted-48)]">
+                                              {formatDraftCharCount(
+                                                draft.edited,
+                                                data.settings.charLimits[section],
+                                              )}
+                                            </p>
                                           </div>
                                         );
                                       })}
@@ -612,6 +918,12 @@ function ReportPageInner() {
                                             </div>
                                             <p className="whitespace-pre-wrap text-sm text-[var(--ink)]">
                                               {draft.edited || "(내용 없음)"}
+                                            </p>
+                                            <p className="mt-2 text-xs text-[var(--ink-muted-48)]">
+                                              {formatDraftCharCount(
+                                                draft.edited,
+                                                data.settings.charLimits[section],
+                                              )}
                                             </p>
                                           </div>
                                         );
