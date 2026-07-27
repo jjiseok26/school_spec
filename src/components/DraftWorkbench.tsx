@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { findDraft, useAppStore } from "@/lib/store";
+import { findDraft, findDocuments, useAppStore } from "@/lib/store";
+import { collectDocumentMergePieces } from "@/lib/draftText";
 import { formatActivityDate, formatOfficerLabel } from "@/lib/prompts";
 import type { Draft, Section, StudentDoc } from "@/lib/types";
 import {
@@ -60,8 +61,11 @@ export function DraftWorkbench({
   } = useAppStore();
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
   const [copied, setCopied] = useState(false);
   const [activeDocId, setActiveDocId] = useState<string | null>(null);
+  /** 체크 시 같은 학급 전체 학생에 생성·수합 적용 */
+  const [applyToClass, setApplyToClass] = useState(false);
 
   const isActivitySection = ACTIVITY_SET.has(section);
 
@@ -103,6 +107,29 @@ export function DraftWorkbench({
       orderCredentials(data.settings.apiKeys, data.settings.activeApiKeyId),
     [data.settings.apiKeys, data.settings.activeApiKeyId],
   );
+
+  const selectedStudent = useMemo(
+    () => data.students.find((s) => s.id === studentId),
+    [data.students, studentId],
+  );
+
+  const classmates = useMemo(() => {
+    if (!selectedStudent?.className) return [];
+    return data.students
+      .filter((s) => s.className === selectedStudent.className)
+      .sort((a, b) =>
+        `${a.number.padStart(3, "0")}-${a.name}`.localeCompare(
+          `${b.number.padStart(3, "0")}-${b.name}`,
+          "ko",
+        ),
+      );
+  }, [data.students, selectedStudent?.className]);
+
+  const targetStudents = applyToClass
+    ? classmates
+    : selectedStudent
+      ? [selectedStudent]
+      : [];
 
   async function callGenerate(body: Record<string, unknown>) {
     const res = await fetch("/api/generate", {
@@ -173,48 +200,95 @@ export function DraftWorkbench({
   }
 
   async function generateAllDocuments() {
-    if (!documents.length) {
-      setError("등록된 문서가 없습니다.");
+    if (!studentId) {
+      setError("학생을 선택하세요.");
       return;
     }
     if (!credentials.length) {
       setError("설정에서 API 키를 등록하세요.");
       return;
     }
+    const students = targetStudents;
+    if (!students.length) {
+      setError(
+        applyToClass
+          ? "학급 정보가 없어 전체 적용할 수 없습니다."
+          : "학생을 선택하세요.",
+      );
+      return;
+    }
+
+    const jobs = students.flatMap((stu) => {
+      const docs = findDocuments(
+        data.documents,
+        stu.id,
+        section,
+        subjectId,
+      ).filter((doc) => doc.text.trim() || doc.teacherNote.trim());
+      return docs.map((doc) => ({ student: stu, doc }));
+    });
+
+    if (!jobs.length) {
+      setError(
+        applyToClass
+          ? "학급 학생에게 생성할 문서가 없습니다."
+          : "등록된 문서가 없습니다.",
+      );
+      return;
+    }
+
     setBusyKey("all-docs");
     setError("");
+    setStatus("");
+    let ok = 0;
+    const errors: string[] = [];
     try {
-      for (const doc of documents) {
-        if (!doc.text.trim() && !doc.teacherNote.trim()) continue;
-        setBusyKey(`all:${doc.id}`);
-        const json = await callGenerate({
-          section,
-          subjectName,
-          documents: [
-            {
-              title: doc.title,
-              text: doc.text,
-              teacherNote: doc.teacherNote,
-            },
-          ],
-          checkedActivities: sortedActivities,
-          officers: sortedOfficers,
-          charLimit: data.settings.charLimits[section],
-          credentials,
-        });
-        upsertDraft({
-          studentId,
-          section,
-          subjectId,
-          documentId: doc.id,
-          options: json.drafts,
-          levels: json.levels,
-          provider: json.used?.provider,
-          model: json.used?.model,
-        });
+      for (const { student: stu, doc } of jobs) {
+        setBusyKey(`all:${stu.id}:${doc.id}`);
+        try {
+          const json = await callGenerate({
+            section,
+            subjectName,
+            documents: [
+              {
+                title: doc.title,
+                text: doc.text,
+                teacherNote: doc.teacherNote,
+              },
+            ],
+            checkedActivities: sortedActivities,
+            officers: sortedOfficers,
+            charLimit: data.settings.charLimits[section],
+            credentials,
+          });
+          upsertDraft({
+            studentId: stu.id,
+            section,
+            subjectId,
+            documentId: doc.id,
+            options: json.drafts,
+            levels: json.levels,
+            provider: json.used?.provider,
+            model: json.used?.model,
+          });
+          ok += 1;
+        } catch (err) {
+          errors.push(
+            `${stu.name}/${doc.title || "문서"}: ${err instanceof Error ? err.message : "실패"}`,
+          );
+        }
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "생성 실패");
+      if (errors.length) {
+        setError(
+          applyToClass
+            ? `학급 문서 초안: ${ok}건 생성, 실패 ${errors.length}건 — ${errors.slice(0, 2).join(" / ")}`
+            : errors[0],
+        );
+      } else if (applyToClass) {
+        setStatus(
+          `학급 ${students.length}명 · 문서 초안 ${ok}건을 생성했습니다.`,
+        );
+      }
     } finally {
       setBusyKey(null);
     }
@@ -229,42 +303,36 @@ export function DraftWorkbench({
       setError("설정에서 API 키를 등록하세요.");
       return;
     }
+    const students = targetStudents;
+    if (!students.length) {
+      setError(
+        applyToClass
+          ? "학급 정보가 없어 전체 적용할 수 없습니다."
+          : "학생을 선택하세요.",
+      );
+      return;
+    }
 
-    const pieces = documents
-      .map((doc) => {
-        const draft = findDraft(
-          data.drafts,
-          studentId,
+    const jobs = students
+      .map((stu) => {
+        const docs = findDocuments(
+          data.documents,
+          stu.id,
           section,
           subjectId,
-          doc.id,
         );
-        if (!draft?.confirmed && !draft?.edited.trim()) return null;
-        const text = draft.edited.trim() || "";
-        if (!text) return null;
-        return {
-          title: doc.title || "문서",
-          text,
-          teacherNote: "",
-          level:
-            draft.selected != null
-              ? draft.levels?.[draft.selected]
-              : undefined,
-          confirmed: draft.confirmed,
-        };
+        const usePieces = collectDocumentMergePieces(
+          docs,
+          data.drafts,
+          stu.id,
+          section,
+          subjectId,
+        );
+        return { student: stu, usePieces };
       })
-      .filter(Boolean) as {
-      title: string;
-      text: string;
-      teacherNote: string;
-      level?: string;
-      confirmed: boolean;
-    }[];
+      .filter((j) => j.usePieces.length > 0);
 
-    const confirmedPieces = pieces.filter((p) => p.confirmed);
-    const usePieces = confirmedPieces.length ? confirmedPieces : pieces;
-
-    if (!usePieces.length) {
+    if (!jobs.length) {
       setError(
         "수합할 문서별 초안이 없습니다. 먼저 각 문서의 초안을 생성·확정하세요.",
       );
@@ -273,33 +341,53 @@ export function DraftWorkbench({
 
     setBusyKey("merge");
     setError("");
+    setStatus("");
+    let ok = 0;
+    const errors: string[] = [];
     try {
-      const json = await callGenerate({
-        section,
-        subjectName,
-        documents: usePieces.map((p) => ({
-          title: p.level ? `${p.title} (${p.level})` : p.title,
-          text: p.text,
-          teacherNote: "",
-        })),
-        checkedActivities,
-        officers: sortedOfficers,
-        extraNote,
-        mergeMode: true,
-        charLimit: data.settings.charLimits[section],
-        credentials,
-      });
-      upsertDraft({
-        studentId,
-        section,
-        subjectId,
-        options: json.drafts,
-        levels: json.levels,
-        provider: json.used?.provider,
-        model: json.used?.model,
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "수합 실패");
+      for (const { student: stu, usePieces } of jobs) {
+        setBusyKey(`merge:${stu.id}`);
+        try {
+          const json = await callGenerate({
+            section,
+            subjectName,
+            documents: usePieces.map((p) => ({
+              title: p.level ? `${p.title} (${p.level})` : p.title,
+              text: p.text,
+              teacherNote: "",
+            })),
+            checkedActivities,
+            officers: sortedOfficers,
+            extraNote,
+            mergeMode: true,
+            charLimit: data.settings.charLimits[section],
+            credentials,
+          });
+          upsertDraft({
+            studentId: stu.id,
+            section,
+            subjectId,
+            options: json.drafts,
+            levels: json.levels,
+            provider: json.used?.provider,
+            model: json.used?.model,
+          });
+          ok += 1;
+        } catch (err) {
+          errors.push(
+            `${stu.name}: ${err instanceof Error ? err.message : "수합 실패"}`,
+          );
+        }
+      }
+      if (errors.length) {
+        setError(
+          applyToClass
+            ? `학급 수합: ${ok}명 완료, 실패 ${errors.length}명 — ${errors.slice(0, 2).join(" / ")}`
+            : errors[0],
+        );
+      } else if (applyToClass) {
+        setStatus(`학급 ${ok}명의 최종 초안을 생성했습니다.`);
+      }
     } finally {
       setBusyKey(null);
     }
@@ -377,6 +465,30 @@ export function DraftWorkbench({
       findDraft(data.drafts, studentId, section, subjectId, doc.id)?.confirmed,
     ),
   ).length;
+
+  const classMergeableCount = useMemo(() => {
+    if (!applyToClass) return readyDocDraftCount > 0 ? 1 : 0;
+    return classmates.filter((stu) => {
+      const docs = findDocuments(data.documents, stu.id, section, subjectId);
+      return (
+        collectDocumentMergePieces(
+          docs,
+          data.drafts,
+          stu.id,
+          section,
+          subjectId,
+        ).length > 0
+      );
+    }).length;
+  }, [
+    applyToClass,
+    classmates,
+    data.documents,
+    data.drafts,
+    section,
+    subjectId,
+    readyDocDraftCount,
+  ]);
 
   return (
     <Card title="초안 생성 · 선택 · 수정 · 확정">
@@ -501,9 +613,29 @@ export function DraftWorkbench({
           {error}
         </p>
       ) : null}
+      {status ? (
+        <p className="mb-3 whitespace-pre-wrap rounded-xl bg-[var(--parchment)] px-3 py-2 text-sm text-[var(--ink-muted-80)]">
+          {status}
+        </p>
+      ) : null}
 
       {documents.length > 0 ? (
         <div className="mb-4 space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-[var(--ink-muted-80)]">
+              <input
+                type="checkbox"
+                className="size-4 accent-[var(--primary)]"
+                checked={applyToClass}
+                onChange={(e) => setApplyToClass(e.target.checked)}
+                disabled={busy || !studentId}
+              />
+              학급 전체 적용
+              {selectedStudent?.className
+                ? ` (${selectedStudent.className} · ${classmates.length}명)`
+                : ""}
+            </label>
+          </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -512,18 +644,32 @@ export function DraftWorkbench({
               onClick={() => void generateAllDocuments()}
             >
               {busyKey?.startsWith("all")
-                ? "문서별 생성 중…"
-                : "모든 문서 초안 생성"}
+                ? applyToClass
+                  ? "학급 문서별 생성 중…"
+                  : "문서별 생성 중…"
+                : applyToClass
+                  ? `모든 문서 초안 생성 (학급 ${classmates.length}명)`
+                  : "모든 문서 초안 생성"}
             </button>
             <button
               type="button"
               className={btnPrimary}
-              disabled={busy || !studentId || readyDocDraftCount === 0}
+              disabled={
+                busy ||
+                !studentId ||
+                (applyToClass
+                  ? classMergeableCount === 0
+                  : readyDocDraftCount === 0)
+              }
               onClick={() => void mergeDrafts()}
             >
-              {busyKey === "merge"
-                ? "최종 초안 생성 중…"
-                : `전체 초안 수합하여 최종 초안 생성 (${confirmedDocDraftCount || readyDocDraftCount}/${documents.length})`}
+              {busyKey?.startsWith("merge")
+                ? applyToClass
+                  ? "학급 최종 초안 생성 중…"
+                  : "최종 초안 생성 중…"
+                : applyToClass
+                  ? `전체 초안 수합하여 최종 초안 생성 (학급 ${classMergeableCount}/${classmates.length}명)`
+                  : `전체 초안 수합하여 최종 초안 생성 (${confirmedDocDraftCount || readyDocDraftCount}/${documents.length})`}
             </button>
           </div>
 
