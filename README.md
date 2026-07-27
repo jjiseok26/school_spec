@@ -24,11 +24,32 @@ npm run build
 npm start
 ```
 
-## 배포 (Vercel 등)
+## 배포 (Vercel)
 
-1. 이 저장소를 GitHub에 올린 뒤 Vercel에 Import
-2. 별도 서버 env 키는 **필수가 아닙니다**. 교사가 브라우저 설정에서 자신의 API 키를 등록합니다.
-3. 생성/추출 API는 서버가 프록시만 하고, 학생 원문·결과·키를 DB에 저장하지 않습니다.
+**프로덕션 URL:** [https://schoolspec.vercel.app](https://schoolspec.vercel.app)
+
+### `main`에 push하면 자동 배포
+
+`main` 브랜치에 커밋이 올라가면 GitHub Actions(`.github/workflows/vercel-production.yml`)가 Vercel 프로덕션에 배포합니다.
+
+**최초 1회만** GitHub 저장소 시크릿을 등록해 주세요.
+
+1. [Vercel → Account → Tokens](https://vercel.com/account/tokens)에서 토큰을 만듭니다.
+2. 터미널에서 다음을 실행합니다 (`gh` CLI 필요).
+
+```bash
+gh secret set VERCEL_TOKEN -R jjiseok26/school_spec
+```
+
+저장소 변수 `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`는 이미 설정되어 있습니다.
+
+수동으로 다시 배포하려면 GitHub **Actions → Vercel Production Deployment → Run workflow**를 사용할 수 있습니다.
+
+### 참고
+
+- 별도 서버 env 키는 **필수가 아닙니다**. 교사가 브라우저 설정에서 자신의 API 키를 등록합니다.
+- 생성/추출 API는 서버가 프록시만 하고, 학생 원문·결과·키를 DB에 저장하지 않습니다.
+- Vercel 대시보드에서 같은 GitHub 저장소를 **추가로** 연결하면 배포가 두 번 돌 수 있으니, Git 연동과 Actions 중 하나만 쓰는 것을 권장합니다.
 
 > 참고: 브라우저에서 서버로 API 키를 요청마다 전달합니다. HTTPS 배포를 권장합니다.
 

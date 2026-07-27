@@ -9,7 +9,6 @@ import {
   formatOfficerLabel,
 } from "@/lib/prompts";
 import { SECTION_LABELS, type Section } from "@/lib/types";
-import { downloadTextFile } from "@/lib/utils";
 
 const SECTION_ORDER: Section[] = [
   "subject",
@@ -175,147 +174,76 @@ function ReportPageInner() {
     });
   }
 
-  function buildPlainText() {
-    if (!student) return "";
-    const lines: string[] = [
-      "중등 생기부 교사도우미 · 학생 활동 자료",
-      studentLabel,
-      `출력일: ${new Date().toLocaleString("ko-KR")}`,
-      "",
-    ];
+  function sectionIsEmpty(section: Section) {
+    const groups = groupSectionContent(section);
+    return !groups.length || groups.every((g) => g.empty);
+  }
 
-    for (const section of SECTION_ORDER) {
-      const groups = groupSectionContent(section);
-      if (!groups.length || groups.every((g) => g.empty)) continue;
+  function appendSectionExcelRows(
+    section: Section,
+    rows: (string | number)[][],
+  ) {
+    for (const group of groupSectionContent(section)) {
+      if (group.empty) continue;
+      const subj = group.name;
 
-      lines.push(`## ${SECTION_LABELS[section]}`);
-      lines.push("");
+      for (const draft of group.mergedDrafts) {
+        const level =
+          draft.selected != null
+            ? draft.levels?.[draft.selected]
+            : undefined;
+        rows.push([
+          SECTION_LABELS[section],
+          "최종 수합",
+          subj ? `수합 초안 (${subj})` : "수합 초안",
+          level ?? "",
+          draft.confirmed ? "확정" : "",
+          draft.edited.trim() || "(내용 없음)",
+          "",
+        ]);
+      }
 
-      for (const group of groups) {
-        if (group.empty) continue;
-        if (group.name) {
-          lines.push(`### ${group.name}`);
-          lines.push("");
-        }
+      for (const doc of group.docs) {
+        rows.push([
+          SECTION_LABELS[section],
+          "근거 문서",
+          `${doc.title || "제목 없음"}${subj ? ` (${subj})` : ""}`,
+          "",
+          "",
+          doc.text.trim(),
+          doc.teacherNote.trim(),
+        ]);
+      }
 
-        if (group.mergedDrafts.length) {
-          lines.push("[최종 수합]");
-          for (const draft of group.mergedDrafts) {
-            const level =
-              draft.selected != null
-                ? draft.levels?.[draft.selected]
-                : undefined;
-            lines.push(
-              `수합 초안${draft.confirmed ? " [확정]" : ""}${level ? ` [${level}]` : ""}`,
-            );
-            lines.push(draft.edited.trim() || "(내용 없음)");
-            lines.push("");
-          }
-        }
-
-        if (group.docs.length || group.docDrafts.length) {
-          lines.push("[근거 자료]");
-          for (const doc of group.docs) {
-            lines.push(`문서: ${doc.title || "제목 없음"}`);
-            if (doc.text.trim()) {
-              lines.push("[학생 작성]");
-              lines.push(doc.text.trim());
-            }
-            if (doc.teacherNote.trim()) {
-              lines.push("[교사 메모]");
-              lines.push(doc.teacherNote.trim());
-            }
-            lines.push("");
-          }
-          for (const draft of group.docDrafts) {
-            const level =
-              draft.selected != null
-                ? draft.levels?.[draft.selected]
-                : undefined;
-            const slotTitle = draftSlotTitle(draft.documentId);
-            const kind = draftSlotKind(draft.documentId);
-            lines.push(
-              `${kind} 초안${slotTitle ? ` · ${slotTitle}` : ""}${draft.confirmed ? " [확정]" : ""}${level ? ` [${level}]` : ""}`,
-            );
-            lines.push(draft.edited.trim() || "(내용 없음)");
-            lines.push("");
-          }
-        }
+      for (const draft of group.docDrafts) {
+        const level =
+          draft.selected != null
+            ? draft.levels?.[draft.selected]
+            : undefined;
+        const slotTitle = draftSlotTitle(draft.documentId);
+        const kind = draftSlotKind(draft.documentId);
+        rows.push([
+          SECTION_LABELS[section],
+          "근거 초안",
+          `${slotTitle || `${kind} 초안`}${subj ? ` (${subj})` : ""}`,
+          level ?? "",
+          draft.confirmed ? "확정" : "",
+          draft.edited.trim() || "(내용 없음)",
+          "",
+        ]);
       }
     }
-
-    return lines.join("\n");
   }
 
-  function onDownloadTxt() {
-    if (!student) return;
-    downloadTextFile(
-      `${studentLabel.replace(/\s+/g, "_")}_활동자료.txt`,
-      buildPlainText(),
-      "text/plain",
-    );
-  }
-
-  async function onDownloadExcel() {
-    if (!student) return;
+  async function onDownloadExcel(section: Section) {
+    if (!student || sectionIsEmpty(section)) return;
     const XLSX = await import("xlsx");
 
     const rows: (string | number)[][] = [
       ["영역", "종류", "제목/과목", "수준", "확정", "학생 작성", "교사 메모"],
     ];
 
-    for (const section of SECTION_ORDER) {
-      for (const group of groupSectionContent(section)) {
-        if (group.empty) continue;
-        const subj = group.name;
-
-        for (const draft of group.mergedDrafts) {
-          const level =
-            draft.selected != null
-              ? draft.levels?.[draft.selected]
-              : undefined;
-          rows.push([
-            SECTION_LABELS[section],
-            "최종 수합",
-            subj ? `수합 초안 (${subj})` : "수합 초안",
-            level ?? "",
-            draft.confirmed ? "확정" : "",
-            draft.edited.trim() || "(내용 없음)",
-            "",
-          ]);
-        }
-
-        for (const doc of group.docs) {
-          rows.push([
-            SECTION_LABELS[section],
-            "근거 문서",
-            `${doc.title || "제목 없음"}${subj ? ` (${subj})` : ""}`,
-            "",
-            "",
-            doc.text.trim(),
-            doc.teacherNote.trim(),
-          ]);
-        }
-
-        for (const draft of group.docDrafts) {
-          const level =
-            draft.selected != null
-              ? draft.levels?.[draft.selected]
-              : undefined;
-          const slotTitle = draftSlotTitle(draft.documentId);
-          const kind = draftSlotKind(draft.documentId);
-          rows.push([
-            SECTION_LABELS[section],
-            "근거 초안",
-            `${slotTitle || `${kind} 초안`}${subj ? ` (${subj})` : ""}`,
-            level ?? "",
-            draft.confirmed ? "확정" : "",
-            draft.edited.trim() || "(내용 없음)",
-            "",
-          ]);
-        }
-      }
-    }
+    appendSectionExcelRows(section, rows);
 
     const ws = XLSX.utils.aoa_to_sheet(rows);
     ws["!cols"] = [
@@ -328,13 +256,21 @@ function ReportPageInner() {
       { wch: 40 },
     ];
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "활동자료");
-    XLSX.writeFile(wb, `${studentLabel.replace(/\s+/g, "_")}_활동자료.xlsx`);
+    const sheetName = SECTION_LABELS[section].slice(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const safeSection = SECTION_LABELS[section].replace(/[\\/:*?"<>|]/g, "_");
+    XLSX.writeFile(
+      wb,
+      `${studentLabel.replace(/\s+/g, "_")}_${safeSection}.xlsx`,
+    );
   }
 
   function onPrint() {
     window.print();
   }
+
+  const activeSectionLabel = SECTION_LABELS[viewTab];
+  const activeSectionEmpty = sectionIsEmpty(viewTab);
 
   function confirmDelete(label: string) {
     return window.confirm(`「${label}」을(를) 삭제할까요?`);
@@ -438,26 +374,6 @@ function ReportPageInner() {
             </Card>
           ) : (
             <>
-              <div className="no-print mb-4 flex flex-wrap gap-2">
-                <button type="button" className={btnPrimary} onClick={onPrint}>
-                  인쇄 · PDF 저장
-                </button>
-                <button
-                  type="button"
-                  className={btnSecondary}
-                  onClick={onDownloadExcel}
-                >
-                  Excel 내보내기
-                </button>
-                <button
-                  type="button"
-                  className={btnSecondary}
-                  onClick={onDownloadTxt}
-                >
-                  TXT 다운로드
-                </button>
-              </div>
-
               <div id="print-area" className="print-area space-y-4">
                 <Card>
                   <h2 className="text-[22px] font-semibold tracking-[-0.02em] text-[var(--ink)]">
@@ -478,6 +394,30 @@ function ReportPageInner() {
                   onChange={setViewTab}
                 />
 
+                <div className="no-print flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={onPrint}
+                    disabled={activeSectionEmpty}
+                  >
+                    {activeSectionLabel} 인쇄 · PDF
+                  </button>
+                  <button
+                    type="button"
+                    className={btnSecondary}
+                    onClick={() => void onDownloadExcel(viewTab)}
+                    disabled={activeSectionEmpty}
+                  >
+                    {activeSectionLabel} Excel보내기
+                  </button>
+                  {activeSectionEmpty ? (
+                    <span className="text-sm text-[var(--ink-muted-48)]">
+                      선택한 영역에 보낼 자료가 없습니다.
+                    </span>
+                  ) : null}
+                </div>
+
                 {SECTION_ORDER.map((section) => {
                   const groups = groupSectionContent(section);
                   const empty =
@@ -486,11 +426,7 @@ function ReportPageInner() {
                   return (
                     <div
                       key={section}
-                      className={
-                        viewTab === section
-                          ? "block"
-                          : "hidden print:block"
-                      }
+                      className={viewTab === section ? "block" : "hidden"}
                     >
                       <Card title={SECTION_LABELS[section]}>
                         {empty ? (
