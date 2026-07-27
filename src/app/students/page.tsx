@@ -22,6 +22,7 @@ export default function StudentsPage() {
     createClassRoster,
     updateStudent,
     removeStudent,
+    removeClassStudents,
     addDocument,
   } = useAppStore();
 
@@ -317,23 +318,54 @@ export default function StudentsPage() {
             <p className="text-sm text-slate-500">등록된 학생이 없습니다.</p>
           ) : (
             <>
-              <div className="mb-4 max-w-xs">
-                <Field label="학급">
-                  <select
-                    className={inputClass}
-                    value={listClass}
-                    onChange={(e) => setListClass(e.target.value)}
+              <div className="mb-4 flex flex-wrap items-end gap-3">
+                <div className="max-w-xs flex-1">
+                  <Field label="학급">
+                    <select
+                      className={inputClass}
+                      value={listClass}
+                      onChange={(e) => setListClass(e.target.value)}
+                    >
+                      {classTabs.map((c) => (
+                        <option key={c} value={c}>
+                          {c} (
+                          {
+                            data.students.filter((s) => s.className === c)
+                              .length
+                          }
+                          명)
+                          {c === data.settings.teacherClassName
+                            ? " · 담임"
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+                {listClass ? (
+                  <button
+                    type="button"
+                    className={btnDanger}
+                    onClick={() => {
+                      const count = data.students.filter(
+                        (s) => s.className === listClass,
+                      ).length;
+                      if (
+                        !window.confirm(
+                          `«${listClass}» 학급 학생 ${count}명과 관련 문서·초안·일정·임원 기록을 모두 삭제할까요? 이 작업은 되돌릴 수 없습니다.`,
+                        )
+                      ) {
+                        return;
+                      }
+                      const removed = removeClassStudents(listClass);
+                      setMessage(
+                        `«${listClass}» 학급 학생 ${removed}명을 삭제했습니다.`,
+                      );
+                    }}
                   >
-                    {classTabs.map((c) => (
-                      <option key={c} value={c}>
-                        {c} (
-                        {data.students.filter((s) => s.className === c).length}
-                        명)
-                        {c === data.settings.teacherClassName ? " · 담임" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
+                    학급 전체 삭제
+                  </button>
+                ) : null}
               </div>
 
               {listedStudents.length === 0 ? (
@@ -422,7 +454,24 @@ export default function StudentsPage() {
                                 <button
                                   type="button"
                                   className={btnDanger}
-                                  onClick={() => removeStudent(s.id)}
+                                  onClick={() => {
+                                    const label = [
+                                      s.className,
+                                      s.number ? `${s.number}번` : "",
+                                      s.name,
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" ");
+                                    if (
+                                      !window.confirm(
+                                        `«${label}» 학생과 관련 문서·초안·일정·임원 기록을 삭제할까요?`,
+                                      )
+                                    ) {
+                                      return;
+                                    }
+                                    removeStudent(s.id);
+                                    setMessage(`${s.name} 학생을 삭제했습니다.`);
+                                  }}
                                 >
                                   삭제
                                 </button>

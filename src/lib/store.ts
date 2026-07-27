@@ -427,6 +427,35 @@ export function useAppStore() {
           }
         });
       },
+      /** 해당 학급 학생과 관련 문서·초안·일정·임원·동아리 소속을 모두 삭제 */
+      removeClassStudents(className: string) {
+        const target = className.trim();
+        if (!target) return 0;
+        let removed = 0;
+        update((d) => {
+          const ids = new Set(
+            d.students
+              .filter((s) => s.className === target)
+              .map((s) => s.id),
+          );
+          removed = ids.size;
+          if (!removed) return;
+          d.students = d.students.filter((s) => !ids.has(s.id));
+          d.documents = d.documents.filter((doc) => !ids.has(doc.studentId));
+          d.scheduleChecks = d.scheduleChecks.filter(
+            (c) => !ids.has(c.studentId),
+          );
+          d.drafts = d.drafts.filter((draft) => !ids.has(draft.studentId));
+          d.officers = d.officers.filter((o) => !ids.has(o.studentId));
+          for (const club of d.clubs) {
+            club.memberIds = club.memberIds.filter((sid) => !ids.has(sid));
+          }
+          if (d.settings.teacherClassName === target) {
+            d.settings.teacherClassName = null;
+          }
+        });
+        return removed;
+      },
       addClub(name: string) {
         const id = uid("club");
         const trimmed = name.trim();
