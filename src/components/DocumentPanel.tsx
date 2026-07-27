@@ -16,7 +16,7 @@ import {
 const CUSTOM_TITLE = "__custom__";
 
 const STUDENT_DOC_SAMPLE = `■ 학습 활동지 (학생 문서 샘플 양식)
-※ 내용을 작성·저장한 뒤 업로드하거나 붙여넣기 하고, 확인 후 「텍스트 추가」로 등록하세요.
+※ 내용을 작성·저장한 뒤 업로드하거나 붙여넣기 하고, 확인 후 「데이터 입력」로 등록하세요.
 
 ────────────────────────
 문서 제목 예: 토의·토론 활동, 단원 탐구 보고, 프로젝트 성찰문
@@ -180,7 +180,7 @@ export function DocumentPanel({
       }
       setPaste(chunks.join("\n\n"));
       setMessage(
-        `${ok}개 파일에서 텍스트를 추출했습니다. 내용을 확인한 뒤 «텍스트 추가»를 눌러 등록하세요.`,
+        `${ok}개 파일에서 텍스트를 추출했습니다. 내용을 확인한 뒤 «데이터 입력»를 눌러 등록하세요.`,
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "추출 실패");
@@ -238,7 +238,7 @@ export function DocumentPanel({
           />
           <Field
             label="파일 업로드 (복수 가능)"
-            hint="지원 형식: txt, docx, pdf, hwpx, png, jpg, jpeg, webp, gif. 파일에서 텍스트만 추출해 아래 칸에 넣습니다. 문서 제목을 지정한 뒤 «텍스트 추가»로 등록하세요."
+            hint="지원 형식: txt, docx, pdf, hwpx, png, jpg, jpeg, webp, gif. 파일에서 텍스트만 추출해 아래 칸에 넣습니다. 문서 제목을 지정한 뒤 «데이터 입력»로 등록하세요."
           >
             <input
               ref={fileRef}
@@ -271,7 +271,7 @@ export function DocumentPanel({
         </div>
         <Field
           label="텍스트 붙여넣기"
-          hint="직접 입력하거나, 파일 업로드로 추출한 내용을 확인·수정한 뒤 문서 제목을 지정하고 «텍스트 추가»를 누르세요."
+          hint="직접 입력하거나, 파일 업로드로 추출한 내용을 확인·수정한 뒤 문서 제목을 지정하고 «데이터 입력»를 누르세요."
         >
           <textarea
             className={`${inputClass} min-h-28`}
@@ -298,7 +298,7 @@ export function DocumentPanel({
             disabled={busy}
             onClick={addPaste}
           >
-            텍스트 추가
+            데이터 입력
           </button>
         </div>
         {message ? <p className="text-sm text-slate-600">{message}</p> : null}
