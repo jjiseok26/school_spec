@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/lib/store";
+import { getDraftText } from "@/lib/draftText";
 import { SECTION_LABELS, type Section } from "@/lib/types";
 import { btnPrimary, btnSecondary, Card, Field, inputClass } from "./ui";
 
@@ -92,36 +93,10 @@ export function ClassExcelPanel({
         );
       }
 
-      function draftText(draft: {
-        edited?: string;
-        options?: string[];
-        selected?: number | null;
-      } | undefined) {
-        if (!draft) return "";
-        const edited = draft.edited?.trim() ?? "";
-        if (edited) return edited;
-        if (
-          draft.selected != null &&
-          draft.selected >= 0 &&
-          draft.options?.[draft.selected]?.trim()
-        ) {
-          return draft.options[draft.selected].trim();
-        }
-        return (draft.options ?? []).find((t) => t.trim())?.trim() ?? "";
-      }
-
-      function mergedDraftText(studentId: string) {
-        const studentDrafts = draftsForStudent(studentId);
-        // 1) 영역 수합 초안 (documentId 없음)
-        const merged = studentDrafts.find((d) => !d.documentId);
-        const mergedText = draftText(merged);
-        if (mergedText) return mergedText;
-        // 2) 문서별 초안만 있으면 순서대로 이어 붙여 수합 열에 표시
-        return studentDrafts
-          .filter((d) => Boolean(d.documentId))
-          .map((d) => draftText(d))
-          .filter(Boolean)
-          .join(" ");
+      function draftForDocument(studentId: string, documentId: string) {
+        return draftsForStudent(studentId).find(
+          (d) => d.documentId === documentId,
+        );
       }
 
       const includeData = students.some((student) => {
@@ -136,7 +111,9 @@ export function ClassExcelPanel({
         ) {
           return true;
         }
-        return Boolean(mergedDraftText(student.id));
+        return docs.some((doc) =>
+          Boolean(getDraftText(draftForDocument(student.id, doc.id))),
+        );
       });
 
       const { Workbook } = await import("exceljs");
@@ -179,7 +156,7 @@ export function ClassExcelPanel({
         "수행과제(문서 제목)",
         "학생 작성 내용",
         "교사 메모",
-        "수합 초안(참고·업로드 시 무시)",
+        "항목별 초안(문서별·업로드 시 무시)",
       ];
       const headerRow = ws.getRow(2);
       headers.forEach((h, i) => {
@@ -243,20 +220,14 @@ export function ClassExcelPanel({
         }
 
         const docs = docsForStudent(student.id);
-        const mergedText = mergedDraftText(student.id);
 
         if (docs.length) {
-          docs.forEach((doc, i) => {
-            // 「수합 초안」 열에는 수합(영역) 초안만 첫 행에 기록
-            pushRow(
-              doc.title,
-              doc.text,
-              doc.teacherNote,
-              i === 0 ? mergedText : "",
+          docs.forEach((doc) => {
+            const itemDraft = getDraftText(
+              draftForDocument(student.id, doc.id),
             );
+            pushRow(doc.title, doc.text, doc.teacherNote, itemDraft);
           });
-        } else if (mergedText) {
-          pushRow("", "", "", mergedText);
         } else {
           pushRow("", "", "", "");
         }
@@ -284,7 +255,7 @@ export function ClassExcelPanel({
       URL.revokeObjectURL(url);
       setMessage(
         includeData
-          ? `${className}반 ${students.length}명의 자료(교사 메모·초안 포함)를 내려받았습니다.`
+          ? `${className}반 ${students.length}명의 자료(교사 메모·문서별 초안 포함)를 내려받았습니다.`
           : `${className}반 자료가 없어 빈 입력 양식을 내려받았습니다.`,
       );
     } catch (error) {
@@ -388,7 +359,7 @@ export function ClassExcelPanel({
         </Field>
         <Field
           label={`${sectionLabel} 자료`}
-          hint="다운로드 시 해당 학급의 학생 작성·교사 메모·문서별/수합 초안을 함께 채웁니다. 자료가 없으면 번호·이름만 있는 빈 양식을 내려줍니다. 채운 뒤 업로드하면 같은 제목은 덮어쓰고 새 제목은 추가됩니다."
+          hint="다운로드 시 해당 학급의 학생 작성·교사 메모·문서별 초안을 함께 채웁니다. 전체 수합 초안은 포함하지 않습니다. 자료가 없으면 번호·이름만 있는 빈 양식을 내려줍니다."
         >
           <div className="flex flex-wrap gap-2">
             <button

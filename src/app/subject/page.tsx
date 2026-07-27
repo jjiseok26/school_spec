@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ClassDraftMergePanel } from "@/components/ClassDraftMergePanel";
 import { ClassExcelPanel } from "@/components/ClassExcelPanel";
 import { DocumentPanel } from "@/components/DocumentPanel";
 import { DraftWorkbench } from "@/components/DraftWorkbench";
@@ -251,11 +252,18 @@ export default function SubjectPage() {
 
           {mainTab === "excel" ? (
             effectiveSubjectId ? (
-              <ClassExcelPanel
-                section="subject"
-                subjectId={effectiveSubjectId}
-                subjectName={subject?.name}
-              />
+              <div className="space-y-4">
+                <ClassExcelPanel
+                  section="subject"
+                  subjectId={effectiveSubjectId}
+                  subjectName={subject?.name}
+                />
+                <ClassDraftMergePanel
+                  section="subject"
+                  subjectId={effectiveSubjectId}
+                  subjectName={subject?.name}
+                />
+              </div>
             ) : (
               <Card>
                 <p className="text-sm text-[var(--ink-muted-48)]">
