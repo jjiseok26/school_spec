@@ -176,10 +176,6 @@ export function DocumentPanel({
             ? `[${file.name}]\n${extracted}`
             : `[${file.name}]\n(추출된 텍스트 없음)`,
         );
-        if (!title.trim() && list.length === 1) {
-          const base = file.name.replace(/\.[^.]+$/, "");
-          if (base) setTitle(base);
-        }
         ok += 1;
       }
       setPaste(chunks.join("\n\n"));
@@ -207,6 +203,10 @@ export function DocumentPanel({
       setMessage("학생을 먼저 선택하세요.");
       return;
     }
+    if (!title.trim()) {
+      setMessage("문서 제목을 먼저 지정하세요.");
+      return;
+    }
     if (!paste.trim()) {
       setMessage("붙여넣을 텍스트를 입력하세요.");
       return;
@@ -215,7 +215,7 @@ export function DocumentPanel({
       studentId,
       section,
       subjectId,
-      title: title.trim() || "붙여넣기",
+      title: title.trim(),
       text: paste.trim(),
       teacherNote: teacherNote.trim(),
     });
@@ -238,7 +238,7 @@ export function DocumentPanel({
           />
           <Field
             label="파일 업로드 (복수 가능)"
-            hint="파일에서 텍스트만 추출해 아래 칸에 넣습니다. 등록은 «텍스트 추가»로 합니다."
+            hint="지원 형식: txt, docx, pdf, hwpx, png, jpg, jpeg, webp, gif. 파일에서 텍스트만 추출해 아래 칸에 넣습니다. 문서 제목을 지정한 뒤 «텍스트 추가»로 등록하세요."
           >
             <input
               ref={fileRef}
@@ -271,7 +271,7 @@ export function DocumentPanel({
         </div>
         <Field
           label="텍스트 붙여넣기"
-          hint="직접 입력하거나, 파일 업로드로 추출한 내용을 확인·수정한 뒤 «텍스트 추가»를 누르세요."
+          hint="직접 입력하거나, 파일 업로드로 추출한 내용을 확인·수정한 뒤 문서 제목을 지정하고 «텍스트 추가»를 누르세요."
         >
           <textarea
             className={`${inputClass} min-h-28`}
