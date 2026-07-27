@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/lib/store";
 import type { AppData } from "@/lib/types";
 import { downloadTextFile } from "@/lib/utils";
@@ -16,7 +16,51 @@ const NAV = [
   { href: "/club", label: "동아리" },
   { href: "/report", label: "활동열람" },
   { href: "/settings", label: "설정" },
-];
+] as const;
+
+const SIDEBAR_EXPANDED_KEY = "app-sidebar-expanded";
+
+function NavLinks({
+  pathname,
+  expanded,
+  onNavigate,
+}: {
+  pathname: string | null;
+  expanded: boolean;
+  onNavigate?: () => void;
+}) {
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : Boolean(pathname?.startsWith(href));
+
+  return (
+    <nav className="flex flex-1 flex-col gap-0.5 p-2">
+      {NAV.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          title={item.label}
+          onClick={onNavigate}
+          className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-colors ${
+            isActive(item.href)
+              ? "bg-[var(--primary)] text-white"
+              : "text-[var(--ink-muted-80)] hover:bg-white hover:text-[var(--ink)]"
+          } ${expanded ? "" : "justify-center px-2"}`}
+        >
+          <span
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[13px] font-semibold ${
+              isActive(item.href)
+                ? "bg-white/20"
+                : "bg-[var(--surface-pearl)] text-[var(--ink)]"
+            }`}
+          >
+            {item.label.slice(0, 1)}
+          </span>
+          {expanded ? <span className="truncate">{item.label}</span> : null}
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 function GlobalBackupButtons() {
   const { data, exportData, importData, setIncludeKeysInExport } = useAppStore();
@@ -115,97 +159,144 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname?.startsWith(href);
+  useEffect(() => {
+    try {
+      setSidebarExpanded(localStorage.getItem(SIDEBAR_EXPANDED_KEY) === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function toggleSidebar() {
+    setSidebarExpanded((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_EXPANDED_KEY, next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
+
+  const desktopSidebarWidth = sidebarExpanded ? "lg:pl-56" : "lg:pl-[4.25rem]";
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--ink)]">
-      {/* global-nav: slim near-black bar */}
-      <div className="no-print sticky top-0 z-40 bg-black text-white">
-        <div className="mx-auto flex h-11 max-w-[1440px] items-center justify-between px-4 sm:px-6">
-          <Link
-            href="/"
-            className="text-[13px] font-semibold tracking-tight text-white/90 hover:text-white"
-          >
-            생기부 교사도우미
-          </Link>
+      <div className="no-print sticky top-0 z-50 bg-black text-white">
+        <div className="flex h-11 items-center justify-between gap-3 px-3 sm:px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              aria-label="메뉴 열기"
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white/80 hover:text-white lg:hidden"
+              onClick={() => setMobileNavOpen(true)}
+            >
+              <span className="text-lg leading-none">☰</span>
+            </button>
+            <Link
+              href="/"
+              className="truncate text-[13px] font-semibold tracking-tight text-white/90 hover:text-white"
+            >
+              생기부 교사도우미
+            </Link>
+          </div>
           <button
             type="button"
-            aria-label="메뉴"
-            aria-expanded={open}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-white/80 hover:text-white lg:hidden"
-            onClick={() => setOpen((v) => !v)}
+            aria-label="사이드바 펼치기"
+            className="hidden h-8 items-center gap-1.5 rounded-md px-2 text-[12px] text-white/70 hover:text-white lg:inline-flex"
+            onClick={toggleSidebar}
           >
-            <span className="text-lg leading-none">{open ? "✕" : "☰"}</span>
+            {sidebarExpanded ? "메뉴 접기" : "메뉴 펼치기"}
           </button>
-          <nav className="hidden items-center gap-1 lg:flex">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`rounded-full px-3 py-1 text-[12px] tracking-tight transition-transform active:scale-95 ${
-                  isActive(item.href)
-                    ? "bg-white/15 text-white"
-                    : "text-white/70 hover:text-white"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
         </div>
-
-        {/* mobile menu tray */}
-        {open ? (
-          <div className="border-t border-white/10 lg:hidden">
-            <nav className="mx-auto grid max-w-[1440px] grid-cols-2 gap-1 px-4 py-3 sm:grid-cols-3">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  className={`rounded-lg px-3 py-2 text-sm transition-transform active:scale-95 ${
-                    isActive(item.href)
-                      ? "bg-white/15 text-white"
-                      : "text-white/75 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-        ) : null}
       </div>
 
-      {/* sub-nav-frosted: page title strip */}
-      <header className="no-print sticky top-11 z-30 border-b border-[var(--hairline)] bg-[var(--parchment)]/80 backdrop-blur-xl backdrop-saturate-150">
-        <div className="mx-auto flex max-w-[1080px] items-start justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] sm:text-[28px]">
-              {title}
-            </h1>
-            {subtitle ? (
-              <p className="mt-1 text-[15px] leading-snug text-[var(--ink-muted-80)] sm:text-[17px]">
-                {subtitle}
-              </p>
-            ) : null}
+      {/* 모바일 드로어 */}
+      {mobileNavOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="메뉴 닫기"
+            className="fixed inset-0 top-11 z-40 bg-black/40 lg:hidden"
+            onClick={() => setMobileNavOpen(false)}
+          />
+          <aside className="no-print fixed left-0 top-11 z-50 flex h-[calc(100dvh-2.75rem)] w-56 flex-col border-r border-[var(--hairline)] bg-[var(--parchment)] shadow-xl lg:hidden">
+            <div className="flex items-center justify-between border-b border-[var(--hairline)] px-3 py-2">
+              <span className="text-sm font-semibold text-[var(--ink)]">메뉴</span>
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-sm text-[var(--ink-muted-48)]"
+                onClick={() => setMobileNavOpen(false)}
+              >
+                닫기
+              </button>
+            </div>
+            <NavLinks
+              pathname={pathname}
+              expanded
+              onNavigate={() => setMobileNavOpen(false)}
+            />
+          </aside>
+        </>
+      ) : null}
+
+      {/* 데스크톱 접이식 사이드바 */}
+      <aside
+        className={`no-print fixed left-0 top-11 z-40 hidden h-[calc(100dvh-2.75rem)] flex-col border-r border-[var(--hairline)] bg-[var(--parchment)]/95 backdrop-blur-sm transition-[width] duration-200 lg:flex ${
+          sidebarExpanded ? "w-56" : "w-[4.25rem]"
+        }`}
+      >
+        <NavLinks pathname={pathname} expanded={sidebarExpanded} />
+        <div className="border-t border-[var(--hairline)] p-2">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-[var(--ink-muted-80)] hover:bg-white hover:text-[var(--ink)] ${
+              sidebarExpanded ? "" : "justify-center"
+            }`}
+            aria-expanded={sidebarExpanded}
+          >
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-pearl)] text-base">
+              {sidebarExpanded ? "‹" : "›"}
+            </span>
+            {sidebarExpanded ? <span>메뉴 접기</span> : null}
+          </button>
+        </div>
+      </aside>
+
+      <div
+        className={`flex min-h-[calc(100dvh-2.75rem)] flex-col transition-[padding] duration-200 ${desktopSidebarWidth}`}
+      >
+        <header className="no-print sticky top-11 z-30 border-b border-[var(--hairline)] bg-[var(--parchment)]/80 backdrop-blur-xl backdrop-saturate-150">
+          <div className="flex items-start justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8 sm:py-5">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[22px] font-semibold leading-tight tracking-[-0.02em] sm:text-[28px]">
+                {title}
+              </h1>
+              {subtitle ? (
+                <p className="mt-1 text-[15px] leading-snug text-[var(--ink-muted-80)] sm:text-[17px]">
+                  {subtitle}
+                </p>
+              ) : null}
+            </div>
+            <GlobalBackupButtons />
           </div>
-          <GlobalBackupButtons />
-        </div>
-      </header>
+        </header>
 
-      <main className="mx-auto max-w-[1080px] px-4 py-6 sm:px-6 sm:py-10">
-        {children}
-      </main>
+        <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+          <div className="mx-auto w-full max-w-[1440px]">{children}</div>
+        </main>
 
-      <footer className="no-print border-t border-[var(--hairline)] bg-[var(--parchment)]">
-        <div className="mx-auto max-w-[1080px] px-4 py-6 text-center text-[13px] text-[var(--ink-muted-48)] sm:px-6">
-          © {new Date().getFullYear()} Jiseok. All rights reserved.
-        </div>
-      </footer>
+        <footer className="no-print border-t border-[var(--hairline)] bg-[var(--parchment)]">
+          <div className="px-4 py-6 text-center text-[13px] text-[var(--ink-muted-48)] sm:px-6 lg:px-8">
+            © {new Date().getFullYear()} Jiseok. All rights reserved.
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
