@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { findDraft, useAppStore } from "@/lib/store";
 import type { Section } from "@/lib/types";
-import { orderCredentials } from "@/lib/utils";
+import { orderCredentials, downloadTextFile } from "@/lib/utils";
 import { PerDocumentDraft } from "./PerDocumentDraft";
 import {
   btnPrimary,
@@ -14,6 +14,26 @@ import {
 } from "./ui";
 
 const CUSTOM_TITLE = "__custom__";
+
+const STUDENT_DOC_SAMPLE = `■ 학습 활동지 (학생 문서 샘플 양식)
+※ 내용을 작성·저장한 뒤 업로드하거나 붙여넣기 하고, 확인 후 「텍스트 추가」로 등록하세요.
+
+────────────────────────
+문서 제목 예: 토의·토론 활동, 단원 탐구 보고, 프로젝트 성찰문
+
+■ 단원·차시:
+■ 활동 일자: YYYY.MM.DD.
+
+[학생 작성 내용]
+(학생이 작성한 글, 활동지 답안, 성찰문, 관찰 기록 등)
+
+예시)
+환경 문제를 주제로 모둠 토의를 진행하였다. 각자 조사한 자료를 바탕으로 원인과 해결 방안을 정리하였고, 발표자는 핵심 쟁점을 중심으로 설명하였다. 토론 과정에서 다른 의견을 경청하고 근거를 들어 자신의 생각을 말하려는 태도를 보였다.
+
+[활동에서 드러난 역할·과정 (선택)]
+예: 자료 조사, 발표, 기록, 모둠장 역할 등
+────────────────────────
+`;
 
 function TitlePicker({
   value,
@@ -134,6 +154,8 @@ export function DocumentPanel({
       data.settings.activeApiKeyId,
     );
     const list = Array.from(files);
+    const chunks: string[] = [];
+    if (paste.trim()) chunks.push(paste.trim());
     let ok = 0;
     try {
       for (const file of list) {
@@ -148,25 +170,36 @@ export function DocumentPanel({
         if (json.used?.id) {
           adjustApiKeyPriority(json.used.id, json.failedIds ?? []);
         }
-        addDocument({
-          studentId,
-          section,
-          subjectId,
-          title: title.trim() || file.name,
-          text: json.text || "",
-          teacherNote: teacherNote.trim(),
-        });
+        const extracted = (json.text as string | undefined)?.trim() ?? "";
+        chunks.push(
+          extracted
+            ? `[${file.name}]\n${extracted}`
+            : `[${file.name}]\n(추출된 텍스트 없음)`,
+        );
+        if (!title.trim() && list.length === 1) {
+          const base = file.name.replace(/\.[^.]+$/, "");
+          if (base) setTitle(base);
+        }
         ok += 1;
       }
-      setTitle("");
-      setTeacherNote("");
-      setMessage(`${ok}개 파일을 추가했습니다.`);
+      setPaste(chunks.join("\n\n"));
+      setMessage(
+        `${ok}개 파일에서 텍스트를 추출했습니다. 내용을 확인한 뒤 «텍스트 추가»를 눌러 등록하세요.`,
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "추출 실패");
     } finally {
       setBusy(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  function downloadSampleForm() {
+    downloadTextFile(
+      "학생문서_샘플양식.txt",
+      STUDENT_DOC_SAMPLE,
+      "text/plain",
+    );
   }
 
   function addPaste() {
@@ -203,20 +236,43 @@ export function DocumentPanel({
             label="문서 제목"
             hint="한 번 입력한 제목은 같은 영역·과목의 다른 학생에게도 드롭다운으로 나타납니다."
           />
-          <Field label="파일 업로드 (복수 가능)">
+          <Field
+            label="파일 업로드 (복수 가능)"
+            hint="파일에서 텍스트만 추출해 아래 칸에 넣습니다. 등록은 «텍스트 추가»로 합니다."
+          >
             <input
               ref={fileRef}
               type="file"
               multiple
-              className={inputClass}
+              className="hidden"
               accept=".txt,.docx,.pdf,.hwpx,.png,.jpg,.jpeg,.webp,.gif,image/*"
               onChange={(e) => {
                 if (e.target.files?.length) void extractFiles(e.target.files);
               }}
             />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={btnSecondary}
+                disabled={busy}
+                onClick={() => fileRef.current?.click()}
+              >
+                {busy ? "추출 중…" : "파일 선택"}
+              </button>
+              <button
+                type="button"
+                className={btnSecondary}
+                onClick={downloadSampleForm}
+              >
+                샘플 양식 받기
+              </button>
+            </div>
           </Field>
         </div>
-        <Field label="텍스트 붙여넣기">
+        <Field
+          label="텍스트 붙여넣기"
+          hint="직접 입력하거나, 파일 업로드로 추출한 내용을 확인·수정한 뒤 «텍스트 추가»를 누르세요."
+        >
           <textarea
             className={`${inputClass} min-h-28`}
             value={paste}
@@ -243,14 +299,6 @@ export function DocumentPanel({
             onClick={addPaste}
           >
             텍스트 추가
-          </button>
-          <button
-            type="button"
-            className={btnSecondary}
-            disabled={busy}
-            onClick={() => fileRef.current?.click()}
-          >
-            {busy ? "추출 중…" : "파일 선택"}
           </button>
         </div>
         {message ? <p className="text-sm text-slate-600">{message}</p> : null}
