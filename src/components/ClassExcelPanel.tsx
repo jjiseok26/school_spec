@@ -92,10 +92,36 @@ export function ClassExcelPanel({
         );
       }
 
-      function draftText(draft: { edited?: string; options?: string[] } | undefined) {
-        const edited = draft?.edited?.trim() ?? "";
+      function draftText(draft: {
+        edited?: string;
+        options?: string[];
+        selected?: number | null;
+      } | undefined) {
+        if (!draft) return "";
+        const edited = draft.edited?.trim() ?? "";
         if (edited) return edited;
-        return (draft?.options ?? []).find((t) => t.trim())?.trim() ?? "";
+        if (
+          draft.selected != null &&
+          draft.selected >= 0 &&
+          draft.options?.[draft.selected]?.trim()
+        ) {
+          return draft.options[draft.selected].trim();
+        }
+        return (draft.options ?? []).find((t) => t.trim())?.trim() ?? "";
+      }
+
+      function mergedDraftText(studentId: string) {
+        const studentDrafts = draftsForStudent(studentId);
+        // 1) 영역 수합 초안 (documentId 없음)
+        const merged = studentDrafts.find((d) => !d.documentId);
+        const mergedText = draftText(merged);
+        if (mergedText) return mergedText;
+        // 2) 문서별 초안만 있으면 순서대로 이어 붙여 수합 열에 표시
+        return studentDrafts
+          .filter((d) => Boolean(d.documentId))
+          .map((d) => draftText(d))
+          .filter(Boolean)
+          .join(" ");
       }
 
       const includeData = students.some((student) => {
@@ -110,7 +136,7 @@ export function ClassExcelPanel({
         ) {
           return true;
         }
-        return draftsForStudent(student.id).some((d) => Boolean(draftText(d)));
+        return Boolean(mergedDraftText(student.id));
       });
 
       const { Workbook } = await import("exceljs");
@@ -217,29 +243,20 @@ export function ClassExcelPanel({
         }
 
         const docs = docsForStudent(student.id);
-        const studentDrafts = draftsForStudent(student.id);
-        const mergedDraft = studentDrafts.find((d) => !d.documentId);
-        const mergedText = draftText(mergedDraft);
+        const mergedText = mergedDraftText(student.id);
 
         if (docs.length) {
           docs.forEach((doc, i) => {
-            const docDraft = studentDrafts.find(
-              (d) => d.documentId === doc.id,
+            // 「수합 초안」 열에는 수합(영역) 초안만 첫 행에 기록
+            pushRow(
+              doc.title,
+              doc.text,
+              doc.teacherNote,
+              i === 0 ? mergedText : "",
             );
-            // 문서별 초안 우선, 없으면 첫 행에 수합 초안
-            const final =
-              draftText(docDraft) || (i === 0 ? mergedText : "");
-            pushRow(doc.title, doc.text, doc.teacherNote, final);
           });
-        } else if (mergedText || studentDrafts.some((d) => draftText(d))) {
-          if (mergedText) {
-            pushRow("", "", "", mergedText);
-          } else {
-            for (const d of studentDrafts) {
-              const text = draftText(d);
-              if (text) pushRow("", "", "", text);
-            }
-          }
+        } else if (mergedText) {
+          pushRow("", "", "", mergedText);
         } else {
           pushRow("", "", "", "");
         }
