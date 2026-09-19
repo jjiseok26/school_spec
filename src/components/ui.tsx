@@ -5,6 +5,16 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "@/lib/store";
 import type { AppData } from "@/lib/types";
+import {
+  clearGoogleSession,
+  connectGoogleAccount,
+  getGoogleSession,
+  isGoogleDriveConfigured,
+  loadAppDataFromGoogleDrive,
+  saveAppDataToGoogleDrive,
+  subscribeGoogleSession,
+  type GoogleSession,
+} from "@/lib/googleDrive";
 import { downloadTextFile } from "@/lib/utils";
 
 const NAV = [
@@ -18,7 +28,7 @@ const NAV = [
   { href: "/settings", label: "설정" },
 ] as const;
 
-const SIDEBAR_EXPANDED_KEY = "app-sidebar-expanded";
+const SIDEBAR_EXPANDED_KEY = "app-sidebar-expanded-v2";
 
 function NavLinks({
   pathname,
@@ -40,7 +50,7 @@ function NavLinks({
           href={item.href}
           title={item.label}
           onClick={onNavigate}
-          className={`flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium transition-colors ${
+          className={`flex items-center gap-3 overflow-hidden rounded-xl px-2.5 py-2.5 text-sm font-medium transition-colors ${
             isActive(item.href)
               ? "bg-[var(--primary)] text-white"
               : "text-[var(--ink-muted-80)] hover:bg-white hover:text-[var(--ink)]"
@@ -55,7 +65,9 @@ function NavLinks({
           >
             {item.label.slice(0, 1)}
           </span>
-          {expanded ? <span className="truncate">{item.label}</span> : null}
+          {expanded ? (
+            <span className="min-w-0 flex-1 whitespace-nowrap">{item.label}</span>
+          ) : null}
         </Link>
       ))}
     </nav>
@@ -66,6 +78,14 @@ function GlobalBackupButtons() {
   const { data, exportData, importData, setIncludeKeysInExport } = useAppStore();
   const fileRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState("");
+  const [busy, setBusy] = useState<"save" | "load" | null>(null);
+  const [googleSession, setGoogleSession] = useState<GoogleSession | null>(null);
+
+  useEffect(() => {
+    const sync = () => setGoogleSession(getGoogleSession());
+    sync();
+    return subscribeGoogleSession(sync);
+  }, []);
 
   function flash(msg: string) {
     setToast(msg);
@@ -102,46 +122,193 @@ function GlobalBackupButtons() {
     }
   }
 
+  async function onGoogleSave() {
+    setBusy("save");
+    try {
+      const result = await saveAppDataToGoogleDrive(exportData(true));
+      setGoogleSession(getGoogleSession());
+      flash(`Google Drive 저장 완료 (${result.folderName})`);
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Google 저장 실패");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function onGoogleLoad() {
+    if (
+      !window.confirm(
+        "Google Drive 백업으로 현재 브라우저 데이터를 덮어쓸까요?\n(API 키 포함)",
+      )
+    ) {
+      return;
+    }
+    setBusy("load");
+    try {
+      const incoming = await loadAppDataFromGoogleDrive();
+      importData(incoming, true);
+      setGoogleSession(getGoogleSession());
+      flash("Google Drive에서 불러왔습니다.");
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Google 불러오기 실패");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const googleMode = Boolean(googleSession);
+  const buttonClass =
+    "inline-flex min-h-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] transition-transform hover:bg-[var(--surface-pearl)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60";
+
   return (
     <div className="relative flex shrink-0 flex-col items-end gap-1.5">
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] transition-transform hover:bg-[var(--surface-pearl)] active:scale-95"
-          onClick={onExport}
-        >
-          저장하기
-        </button>
-        <button
-          type="button"
-          className="inline-flex min-h-9 items-center justify-center rounded-full border border-[var(--hairline)] bg-white px-3.5 py-1.5 text-[13px] font-medium text-[var(--ink)] transition-transform hover:bg-[var(--surface-pearl)] active:scale-95"
-          onClick={() => fileRef.current?.click()}
-        >
-          불러오기
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void onImport(file);
-            e.target.value = "";
-          }}
-        />
+        {googleMode ? (
+          <>
+            <button
+              type="button"
+              className={buttonClass}
+              disabled={busy !== null}
+              onClick={() => void onGoogleSave()}
+            >
+              {busy === "save" ? "저장 중…" : "Google에 저장"}
+            </button>
+            <button
+              type="button"
+              className={buttonClass}
+              disabled={busy !== null}
+              onClick={() => void onGoogleLoad()}
+            >
+              {busy === "load" ? "불러오는 중…" : "Google에서 불러오기"}
+            </button>
+          </>
+        ) : (
+          <>
+            <button type="button" className={buttonClass} onClick={onExport}>
+              저장하기
+            </button>
+            <button
+              type="button"
+              className={buttonClass}
+              onClick={() => fileRef.current?.click()}
+            >
+              불러오기
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void onImport(file);
+                e.target.value = "";
+              }}
+            />
+          </>
+        )}
       </div>
-      <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[var(--ink-muted-80)]">
-        <input
-          type="checkbox"
-          className="rounded border-[var(--hairline)]"
-          checked={data.settings.includeKeysInExport}
-          onChange={(e) => setIncludeKeysInExport(e.target.checked)}
-        />
-        저장할때 API 키 포함
-      </label>
+      {googleMode ? (
+        <p className="max-w-[240px] truncate text-right text-[12px] text-[var(--ink-muted-80)]">
+          {googleSession?.email || googleSession?.name || "Google 연결됨"}
+        </p>
+      ) : (
+        <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-[var(--ink-muted-80)]">
+          <input
+            type="checkbox"
+            className="rounded border-[var(--hairline)]"
+            checked={data.settings.includeKeysInExport}
+            onChange={(e) => setIncludeKeysInExport(e.target.checked)}
+          />
+          저장할때 API 키 포함
+        </label>
+      )}
       {toast ? (
         <p className="absolute right-0 top-full z-50 mt-2 max-w-[240px] rounded-xl bg-slate-900 px-3 py-2 text-xs text-white shadow-lg">
+          {toast}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function TopGoogleAuthButton() {
+  const [session, setSession] = useState<GoogleSession | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState("");
+  const configured = isGoogleDriveConfigured();
+
+  useEffect(() => {
+    const sync = () => setSession(getGoogleSession());
+    sync();
+    return subscribeGoogleSession(sync);
+  }, []);
+
+  function flash(msg: string) {
+    setToast(msg);
+    window.setTimeout(() => setToast(""), 2500);
+  }
+
+  async function onLogin() {
+    setBusy(true);
+    try {
+      const next = await connectGoogleAccount(true);
+      setSession(next);
+      flash(
+        next.email ? `Google 로그인: ${next.email}` : "Google 로그인 완료",
+      );
+    } catch (error) {
+      flash(error instanceof Error ? error.message : "Google 로그인 실패");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function onLogout() {
+    clearGoogleSession();
+    setSession(null);
+    flash("Google 연결을 해제했습니다.");
+  }
+
+  if (!configured) {
+    return (
+      <Link
+        href="/settings"
+        className="inline-flex h-8 max-w-[200px] items-center rounded-md px-2 text-[12px] text-white/70 hover:text-white"
+      >
+        Google 설정 필요
+      </Link>
+    );
+  }
+
+  return (
+    <div className="relative shrink-0">
+      {session ? (
+        <button
+          type="button"
+          aria-label="Google 연결 해제"
+          className="inline-flex h-8 max-w-[220px] items-center gap-1.5 rounded-md px-2 text-[12px] text-white/80 hover:bg-white/10 hover:text-white"
+          onClick={onLogout}
+          title="클릭하면 연결 해제"
+        >
+          <span className="truncate">
+            {session.email || session.name || "Google 연결됨"}
+          </span>
+          <span className="shrink-0 text-white/50">해제</span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label="Google로 로그인"
+          className="inline-flex h-8 items-center rounded-md px-2 text-[12px] font-medium text-white/80 hover:bg-white/10 hover:text-white disabled:opacity-60"
+          disabled={busy}
+          onClick={() => void onLogin()}
+        >
+          {busy ? "로그인 중…" : "Google 로그인"}
+        </button>
+      )}
+      {toast ? (
+        <p className="absolute right-0 top-full z-50 mt-2 max-w-[260px] rounded-xl bg-slate-900 px-3 py-2 text-xs text-white shadow-lg">
           {toast}
         </p>
       ) : null}
@@ -159,12 +326,15 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     try {
-      setSidebarExpanded(localStorage.getItem(SIDEBAR_EXPANDED_KEY) === "1");
+      const saved = localStorage.getItem(SIDEBAR_EXPANDED_KEY);
+      if (saved === "0") setSidebarExpanded(false);
+      else if (saved === "1") setSidebarExpanded(true);
+      else localStorage.setItem(SIDEBAR_EXPANDED_KEY, "1");
     } catch {
       /* ignore */
     }
@@ -204,14 +374,7 @@ export function AppShell({
               생기부 교사도우미
             </Link>
           </div>
-          <button
-            type="button"
-            aria-label="사이드바 펼치기"
-            className="hidden h-8 items-center gap-1.5 rounded-md px-2 text-[12px] text-white/70 hover:text-white lg:inline-flex"
-            onClick={toggleSidebar}
-          >
-            {sidebarExpanded ? "메뉴 접기" : "메뉴 펼치기"}
-          </button>
+          <TopGoogleAuthButton />
         </div>
       </div>
 
@@ -246,7 +409,7 @@ export function AppShell({
 
       {/* 데스크톱 접이식 사이드바 */}
       <aside
-        className={`no-print fixed left-0 top-11 z-40 hidden h-[calc(100dvh-2.75rem)] flex-col border-r border-[var(--hairline)] bg-[var(--parchment)]/95 backdrop-blur-sm transition-[width] duration-200 lg:flex ${
+        className={`no-print fixed left-0 top-11 z-40 hidden h-[calc(100dvh-2.75rem)] flex-col overflow-hidden border-r border-[var(--hairline)] bg-[var(--parchment)]/95 backdrop-blur-sm transition-[width] duration-200 lg:flex ${
           sidebarExpanded ? "w-56" : "w-[4.25rem]"
         }`}
       >
@@ -255,15 +418,17 @@ export function AppShell({
           <button
             type="button"
             onClick={toggleSidebar}
-            className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-[var(--ink-muted-80)] hover:bg-white hover:text-[var(--ink)] ${
+            className={`flex w-full items-center gap-2 overflow-hidden rounded-xl px-2.5 py-2 text-sm text-[var(--ink-muted-80)] hover:bg-white hover:text-[var(--ink)] ${
               sidebarExpanded ? "" : "justify-center"
             }`}
             aria-expanded={sidebarExpanded}
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--surface-pearl)] text-base">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-pearl)] text-base">
               {sidebarExpanded ? "‹" : "›"}
             </span>
-            {sidebarExpanded ? <span>메뉴 접기</span> : null}
+            {sidebarExpanded ? (
+              <span className="whitespace-nowrap">메뉴 접기</span>
+            ) : null}
           </button>
         </div>
       </aside>

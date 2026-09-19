@@ -2,9 +2,9 @@
 
 학생 작성 문서와 교사 메모를 근거로 **교과 특기사항**, **행동특성 및 발달상황**, **창의적 체험활동(자율·진로·봉사)**, **동아리활동** 초안을 생성하고, 여러 초안 중 선택·수정·확정하는 웹 앱입니다.
 
-- 로그인 없음
-- 데이터는 **브라우저 localStorage**에만 저장
-- **JSON 내보내기/불러오기**로 PC·기기 간 이전
+- 기본 데이터는 **브라우저 localStorage**에 저장
+- **Google 로그인 + Drive** (`schoolspec` 폴더)로 PC·기기 간 수동 저장·불러오기
+- **JSON 파일 내보내기/불러오기**도 지원
 - AI: **Google Gemini / NVIDIA / OpenAI(ChatGPT) / Anthropic(Claude)**
 - API 키 여러 개 등록·선택·오류 시 다른 키로 폴백
 
@@ -45,10 +45,25 @@ gh secret set VERCEL_TOKEN -R jjiseok26/school_spec
 
 수동으로 다시 배포하려면 GitHub **Actions → Vercel Production Deployment → Run workflow**를 사용할 수 있습니다.
 
+### Google Drive 백업 설정 (선택)
+
+PC가 바뀌어도 이어서 쓰려면 Google OAuth Client ID가 필요합니다.
+
+1. [Google Cloud Console](https://console.cloud.google.com/)에서 프로젝트 생성
+2. **Google Drive API** 사용 설정
+3. **OAuth 동의 화면** 구성 (외부/테스트 사용자에 본인 계정 추가)
+4. **OAuth 클라이언트 ID** (웹 애플리케이션) 생성
+5. **승인된 JavaScript 출처**에 `http://localhost:3000`, `https://schoolspec.vercel.app` 등록
+6. 로컬: `.env.local`에 `NEXT_PUBLIC_GOOGLE_CLIENT_ID=...`  
+   Vercel: Project → Settings → Environment Variables에 동일 키 추가 후 재배포
+
+설정 → 백업에서 **Google로 로그인** → **Drive에 저장** / **Drive에서 불러오기**  
+저장 위치: Drive의 `schoolspec/school_spec_backup.json` (API 키 포함)
+
 ### 참고
 
-- 별도 서버 env 키는 **필수가 아닙니다**. 교사가 브라우저 설정에서 자신의 API 키를 등록합니다.
-- 생성/추출 API는 서버가 프록시만 하고, 학생 원문·결과·키를 DB에 저장하지 않습니다.
+- AI API 키는 교사가 브라우저 설정에서 등록합니다. Drive 백업 시에는 본인 Drive에만 저장됩니다.
+- 생성/추출 API는 서버가 프록시만 하고, 학생 원문·결과·키를 서버 DB에 저장하지 않습니다.
 - Vercel 대시보드에서 같은 GitHub 저장소를 **추가로** 연결하면 배포가 두 번 돌 수 있으니, Git 연동과 Actions 중 하나만 쓰는 것을 권장합니다.
 
 > 참고: 브라우저에서 서버로 API 키를 요청마다 전달합니다. HTTPS 배포를 권장합니다.
@@ -59,7 +74,7 @@ gh secret set VERCEL_TOKEN -R jjiseok26/school_spec
 2. **학생·자료**에서 학급 학생을 등록합니다.
 3. 역할별 화면에서 문서를 붙여넣거나 파일(txt, docx, pdf, hwpx, 이미지)을 올립니다.
 4. **초안 생성** → 초안 선택 → 수정 → **확정** → 복사하여 나이스에 붙여넣습니다.
-5. 필요 시 JSON으로 백업합니다. (API 키 포함 여부 선택 가능)
+5. 필요 시 **설정 → 백업**에서 Google Drive 또는 JSON 파일로 백업합니다.
 
 ## 창체 일정 양식
 

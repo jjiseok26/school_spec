@@ -20,6 +20,7 @@ import {
   type Provider,
   type Section,
 } from "@/lib/types";
+import { GoogleDriveBackup } from "@/components/GoogleDriveBackup";
 import { downloadTextFile } from "@/lib/utils";
 
 const PROVIDERS = Object.keys(PROVIDER_LABELS) as Provider[];
@@ -39,11 +40,12 @@ const API_KEY_LINKS = [
 ] as const;
 
 const SETTINGS_SECTIONS = [
+  { id: "drive", label: "Google Drive" },
   { id: "teacher", label: "교사 정보" },
   { id: "api", label: "API 키" },
   { id: "models", label: "모델" },
   { id: "options", label: "생성 옵션" },
-  { id: "backup", label: "백업" },
+  { id: "backup", label: "파일 백업" },
 ] as const;
 
 type SettingsSectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
@@ -91,7 +93,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState("");
   const [testingId, setTestingId] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
-    useState<SettingsSectionId>("teacher");
+    useState<SettingsSectionId>("drive");
   const fileRef = useRef<HTMLInputElement>(null);
   const scrollingRef = useRef(false);
 
@@ -140,10 +142,19 @@ export default function SettingsPage() {
     if (!el) return;
     setActiveSection(id);
     scrollingRef.current = true;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    const topBar = 44;
+    const pageHeader = document.querySelector(
+      "header.sticky",
+    ) as HTMLElement | null;
+    const headerHeight = pageHeader?.getBoundingClientRect().height ?? 120;
+    const offset = topBar + headerHeight + 12;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
     window.setTimeout(() => {
       scrollingRef.current = false;
-    }, 600);
+    }, 700);
   }
 
   function onAddKey() {
@@ -258,12 +269,12 @@ export default function SettingsPage() {
   return (
     <AppShell
       title="설정"
-      subtitle="API 키·모델, 글자 수, JSON 백업을 관리합니다. 데이터는 이 브라우저에만 저장됩니다."
+      subtitle="API 키·모델, 글자 수, JSON·Google Drive 백업을 관리합니다. 기본 데이터는 이 브라우저에 저장됩니다."
     >
-      <div className="grid gap-4 lg:grid-cols-[200px_minmax(0,1fr)]">
+      <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
         <nav
           aria-label="설정 목차"
-          className="lg:sticky lg:top-32 lg:self-start"
+          className="lg:sticky lg:top-48 lg:self-start"
         >
           <div className="flex gap-1.5 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
             {SETTINGS_SECTIONS.map((section) => (
@@ -271,7 +282,7 @@ export default function SettingsPage() {
                 key={section.id}
                 type="button"
                 onClick={() => scrollToSection(section.id)}
-                className={`shrink-0 rounded-full px-3.5 py-2 text-left text-sm font-medium transition-transform active:scale-95 lg:w-full lg:rounded-xl ${
+                className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-left text-sm font-medium transition-transform active:scale-95 lg:w-full lg:rounded-xl ${
                   activeSection === section.id
                     ? "bg-[var(--primary)] text-white"
                     : "border border-[var(--hairline)] bg-[var(--surface-pearl)] text-[var(--ink)]"
@@ -290,7 +301,11 @@ export default function SettingsPage() {
             </p>
           ) : null}
 
-          <section id="settings-teacher" className="scroll-mt-28">
+          <section id="settings-drive" className="scroll-mt-48">
+            <GoogleDriveBackup onMessage={setMessage} />
+          </section>
+
+          <section id="settings-teacher" className="scroll-mt-48">
             <Card title="교사 정보">
               <div className="grid gap-3 sm:grid-cols-3">
                 <Field
@@ -347,7 +362,7 @@ export default function SettingsPage() {
             </Card>
           </section>
 
-          <section id="settings-api" className="scroll-mt-28 space-y-4">
+          <section id="settings-api" className="scroll-mt-48 space-y-4">
             <Card title="AI API 키 등록">
               <Field
                 label="API 키 발급 사이트"
@@ -647,7 +662,7 @@ export default function SettingsPage() {
             </Card>
           </section>
 
-          <section id="settings-models" className="scroll-mt-28">
+          <section id="settings-models" className="scroll-mt-48">
             <Card title="새 모델 등록">
               <p className="mb-3 text-sm text-slate-600">
                 기본 목록에 없는 모델 ID를 등록해 두면, API 키 추가 시 선택할 수
@@ -754,7 +769,7 @@ export default function SettingsPage() {
             </Card>
           </section>
 
-          <section id="settings-options" className="scroll-mt-28">
+          <section id="settings-options" className="scroll-mt-48">
             <Card title="생성 옵션">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {(Object.keys(SECTION_LABELS) as Section[]).map((section) => (
@@ -780,26 +795,26 @@ export default function SettingsPage() {
             </Card>
           </section>
 
-          <section id="settings-backup" className="scroll-mt-28">
-            <Card title="저장하기 / 불러오기">
+          <section id="settings-backup" className="scroll-mt-48 space-y-4">
+            <Card title="파일로 저장하기 / 불러오기">
               <label className="mb-3 flex items-center gap-2 text-sm text-slate-700">
                 <input
                   type="checkbox"
                   checked={data.settings.includeKeysInExport}
                   onChange={(e) => setIncludeKeysInExport(e.target.checked)}
                 />
-                저장할때 API 키 포함
+                파일 저장할때 API 키 포함
               </label>
               <div className="flex flex-wrap gap-2">
                 <button type="button" className={btnPrimary} onClick={onExport}>
-                  저장하기
+                  파일로 저장하기
                 </button>
                 <button
                   type="button"
                   className={btnSecondary}
                   onClick={() => fileRef.current?.click()}
                 >
-                  불러오기
+                  파일에서 불러오기
                 </button>
                 <input
                   ref={fileRef}
