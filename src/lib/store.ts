@@ -533,6 +533,7 @@ export function useAppStore() {
         let added = 0;
         let updated = 0;
         let newStudents = 0;
+        const studentIds: string[] = [];
         update((d) => {
           for (const row of input.rows) {
             if (!row.name.trim()) continue;
@@ -552,6 +553,7 @@ export function useAppStore() {
               d.students.push(student);
               newStudents += 1;
             }
+            studentIds.push(student.id);
             if (!row.text.trim() && !row.teacherNote.trim()) continue;
             const title = row.title.trim() || "엑셀 업로드";
             const existing = d.documents.find(
@@ -582,7 +584,12 @@ export function useAppStore() {
             }
           }
         });
-        return { added, updated, newStudents };
+        return {
+          added,
+          updated,
+          newStudents,
+          studentIds: [...new Set(studentIds)],
+        };
       },
       updateDocument(id: string, patch: Partial<StudentDoc>) {
         update((d) => {

@@ -6,22 +6,32 @@ import { getDraftText } from "@/lib/draftText";
 import { SECTION_LABELS, type Section } from "@/lib/types";
 import { btnPrimary, btnSecondary, Card, Field, inputClass } from "./ui";
 
-/** 반별 학생 자료를 엑셀로 내려받고, 채워서 다시 올리는 패널 */
+/** 반별(또는 동아리원) 학생 자료를 엑셀로 내려받고, 채워서 다시 올리는 패널 */
 export function ClassExcelPanel({
   section,
   subjectId,
   subjectName,
   lockClassName,
+  /** 지정하면 학급 대신 이 학생들만 대상 (동아리원 등). 학급 열 포함 */
+  memberIds,
+  /** memberIds 모드일 때 파일·제목용 이름 (예: 동아리명) */
+  scopeLabel,
+  /** 업로드 후 반영된 학생 ID (동아리원 등록 등) */
+  onImportedStudents,
 }: {
   section: Section;
   subjectId?: string;
   subjectName?: string;
   /** 지정하면 이 학급만 대상으로 하고 학급 선택을 잠금 */
   lockClassName?: string | null;
+  memberIds?: string[];
+  scopeLabel?: string;
+  onImportedStudents?: (studentIds: string[]) => void;
 }) {
   const { data, importDocuments } = useAppStore();
   const preferredClass = data.settings.teacherClassName;
-  const locked = Boolean(lockClassName);
+  const memberMode = memberIds !== undefined;
+  const locked = Boolean(lockClassName) && !memberMode;
   const [className, setClassName] = useState(
     lockClassName ?? preferredClass ?? "",
   );
@@ -46,6 +56,7 @@ export function ClassExcelPanel({
   }, [data.students, preferredClass]);
 
   useEffect(() => {
+    if (memberMode) return;
     if (lockClassName) {
       setClassName(lockClassName);
       return;
@@ -53,24 +64,31 @@ export function ClassExcelPanel({
     if (preferredClass && (!className || !classes.includes(className))) {
       setClassName(preferredClass);
     }
-  }, [lockClassName, preferredClass, classes, className]);
+  }, [memberMode, lockClassName, preferredClass, classes, className]);
 
   const sectionLabel =
     SECTION_LABELS[section] + (subjectName ? ` (${subjectName})` : "");
+  const displayScope = scopeLabel?.trim() || sectionLabel;
+  const canAct = memberMode || Boolean(className);
 
   async function onDownload() {
-    if (!className) {
+    if (!memberMode && !className) {
       setMessage("학급을 선택하세요.");
       return;
     }
     setBusy(true);
     setMessage("");
     try {
+      const memberSet = memberMode ? new Set(memberIds) : null;
       const students = data.students
-        .filter((s) => s.className === className)
+        .filter((s) =>
+          memberSet
+            ? memberSet.has(s.id)
+            : s.className === className,
+        )
         .sort((a, b) =>
-          `${a.number.padStart(3, "0")}-${a.name}`.localeCompare(
-            `${b.number.padStart(3, "0")}-${b.name}`,
+          `${a.className}-${a.number.padStart(3, "0")}-${a.name}`.localeCompare(
+            `${b.className}-${b.number.padStart(3, "0")}-${b.name}`,
             "ko",
           ),
         );
@@ -122,20 +140,32 @@ export function ClassExcelPanel({
         views: [{ state: "frozen", ySplit: 2 }],
       });
 
-      ws.columns = [
-        { key: "number", width: 7 },
-        { key: "name", width: 12 },
-        { key: "title", width: 22 },
-        { key: "text", width: 60 },
-        { key: "note", width: 36 },
-        { key: "final", width: 60 },
-      ];
+      const withClass = memberMode;
+      ws.columns = withClass
+        ? [
+            { key: "className", width: 10 },
+            { key: "number", width: 7 },
+            { key: "name", width: 12 },
+            { key: "title", width: 22 },
+            { key: "text", width: 60 },
+            { key: "note", width: 36 },
+            { key: "final", width: 60 },
+          ]
+        : [
+            { key: "number", width: 7 },
+            { key: "name", width: 12 },
+            { key: "title", width: 22 },
+            { key: "text", width: 60 },
+            { key: "note", width: 36 },
+            { key: "final", width: 60 },
+          ];
 
-      ws.mergeCells("A1:F1");
+      const lastCol = withClass ? "G" : "F";
+      ws.mergeCells(`A1:${lastCol}1`);
       const titleCell = ws.getCell("A1");
       titleCell.value = includeData
-        ? `${className}반 · ${sectionLabel} 학생 자료`
-        : `${className}반 · ${sectionLabel} 입력 양식`;
+        ? `${displayScope} · ${sectionLabel} 학생 자료`
+        : `${displayScope} · ${sectionLabel} 입력 양식`;
       titleCell.font = {
         name: "맑은 고딕",
         size: 14,
@@ -150,14 +180,24 @@ export function ClassExcelPanel({
       titleCell.alignment = { vertical: "middle", horizontal: "center" };
       ws.getRow(1).height = 30;
 
-      const headers = [
-        "번호",
-        "이름",
-        "수행과제(문서 제목)",
-        "학생 작성 내용",
-        "교사 메모",
-        "항목별 초안(문서별·업로드 시 무시)",
-      ];
+      const headers = withClass
+        ? [
+            "학급",
+            "번호",
+            "이름",
+            "수행과제(문서 제목)",
+            "학생 작성 내용",
+            "교사 메모",
+            "항목별 초안(문서별·업로드 시 무시)",
+          ]
+        : [
+            "번호",
+            "이름",
+            "수행과제(문서 제목)",
+            "학생 작성 내용",
+            "교사 메모",
+            "항목별 초안(문서별·업로드 시 무시)",
+          ];
       const headerRow = ws.getRow(2);
       headers.forEach((h, i) => {
         const cell = headerRow.getCell(i + 1);
@@ -180,11 +220,12 @@ export function ClassExcelPanel({
 
       function styleDataRow(row: import("exceljs").Row) {
         row.eachCell({ includeEmpty: true }, (cell, col) => {
+          const centerCols = withClass ? col <= 3 : col <= 2;
           cell.font = { name: "맑은 고딕", size: 10 };
           cell.alignment = {
             vertical: "top",
-            horizontal: col <= 2 ? "center" : "left",
-            wrapText: col >= 3,
+            horizontal: centerCols ? "center" : "left",
+            wrapText: !centerCols,
           };
           cell.border = {
             top: { style: "thin", color: { argb: "FFF0F0F0" } },
@@ -196,21 +237,24 @@ export function ClassExcelPanel({
       }
 
       for (const student of students) {
-        // 배열로 넣어 key 매핑 누락으로 교사메모·초안이 비는 문제를 방지
         const pushRow = (
           title: string,
           text: string,
           note: string,
           final: string,
         ) => {
-          const row = ws.addRow([
-            student.number,
-            student.name,
-            title,
-            text,
-            note,
-            final,
-          ]);
+          const cells = withClass
+            ? [
+                student.className,
+                student.number,
+                student.name,
+                title,
+                text,
+                note,
+                final,
+              ]
+            : [student.number, student.name, title, text, note, final];
+          const row = ws.addRow(cells);
           styleDataRow(row);
         };
 
@@ -234,8 +278,9 @@ export function ClassExcelPanel({
       }
 
       if (students.length === 0) {
+        const emptyCols = withClass ? 7 : 6;
         for (let i = 0; i < 10; i++) {
-          const row = ws.addRow(["", "", "", "", "", ""]);
+          const row = ws.addRow(Array(emptyCols).fill(""));
           styleDataRow(row);
         }
       }
@@ -247,16 +292,21 @@ export function ClassExcelPanel({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      const safeLabel = sectionLabel.replace(/[\\/:*?"<>| ]+/g, "_");
+      const safeLabel = `${displayScope}_${sectionLabel}`.replace(
+        /[\\/:*?"<>| ]+/g,
+        "_",
+      );
       a.download = includeData
-        ? `${className}_${safeLabel}_학생자료.xlsx`
-        : `${className}_${safeLabel}_입력양식.xlsx`;
+        ? `${safeLabel}_학생자료.xlsx`
+        : `${safeLabel}_입력양식.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       setMessage(
         includeData
-          ? `${className}반 ${students.length}명의 자료(교사 메모·문서별 초안 포함)를 내려받았습니다.`
-          : `${className}반 자료가 없어 빈 입력 양식을 내려받았습니다.`,
+          ? `${displayScope} ${students.length}명의 자료(교사 메모·문서별 초안 포함)를 내려받았습니다.`
+          : students.length
+            ? `${displayScope} 자료가 없어 빈 입력 양식을 내려받았습니다.`
+            : `${displayScope} 동아리원이 없어 빈 입력 양식을 내려받았습니다.`,
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "다운로드 실패");
@@ -266,7 +316,7 @@ export function ClassExcelPanel({
   }
 
   async function onUpload(file: File) {
-    if (!className) {
+    if (!memberMode && !className) {
       setMessage("업로드할 학급을 먼저 선택하세요.");
       return;
     }
@@ -291,6 +341,7 @@ export function ClassExcelPanel({
       const header = grid[headerIdx].map((c) => String(c).trim());
       const col = (aliases: string[]) =>
         header.findIndex((h) => aliases.some((a) => h.includes(a)));
+      const classCol = col(["학급", "반"]);
       const numberCol = col(["번호"]);
       const nameCol = col(["이름"]);
       const titleCol = col(["수행과제", "문서 제목", "제목"]);
@@ -300,24 +351,34 @@ export function ClassExcelPanel({
       if (nameCol < 0 || textCol < 0) {
         throw new Error("'이름'과 '학생 작성 내용' 열이 필요합니다.");
       }
+      if (memberMode && classCol < 0) {
+        throw new Error("동아리 자료 업로드에는 '학급' 열이 필요합니다.");
+      }
 
       const rows = grid
         .slice(headerIdx + 1)
         .map((row) => ({
-          className,
+          className:
+            classCol >= 0
+              ? String(row[classCol] ?? "").trim()
+              : className,
           number: numberCol >= 0 ? String(row[numberCol] ?? "").trim() : "",
           name: String(row[nameCol] ?? "").trim(),
           title: titleCol >= 0 ? String(row[titleCol] ?? "").trim() : "",
           text: String(row[textCol] ?? "").trim(),
           teacherNote: noteCol >= 0 ? String(row[noteCol] ?? "").trim() : "",
         }))
-        .filter((r) => r.name);
+        .filter((r) => r.name && (memberMode ? r.className : true));
 
       if (!rows.length) {
         throw new Error("반영할 행이 없습니다.");
       }
 
       const result = importDocuments({ section, subjectId, rows });
+      if (onImportedStudents && result.studentIds.length) {
+        onImportedStudents(result.studentIds);
+      }
+
       setMessage(
         `업로드 완료: 문서 ${result.added}개 추가, ${result.updated}개 갱신` +
           (result.newStudents ? `, 학생 ${result.newStudents}명 신규 등록` : ""),
@@ -331,41 +392,65 @@ export function ClassExcelPanel({
   }
 
   return (
-    <Card title="반별 자료 엑셀 업로드 · 다운로드">
+    <Card
+      title={
+        memberMode
+          ? "동아리원 자료 엑셀 업로드 · 다운로드"
+          : "반별 자료 엑셀 업로드 · 다운로드"
+      }
+    >
       <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
-        <Field label="학급">
-          {locked ? (
+        {memberMode ? (
+          <Field label="대상">
             <div className="rounded-xl border border-[var(--hairline)] bg-[var(--parchment)] px-3 py-2 text-sm">
               <span className="font-semibold text-[var(--ink)]">
-                {lockClassName}
+                {displayScope}
               </span>
-              <span className="text-[var(--ink-muted-48)]"> (담임)</span>
+              <span className="text-[var(--ink-muted-48)]">
+                {" "}
+                ({memberIds?.length ?? 0}명)
+              </span>
             </div>
-          ) : (
-            <select
-              className={inputClass}
-              value={className}
-              onChange={(e) => setClassName(e.target.value)}
-            >
-              <option value="">학급 선택</option>
-              {classes.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                  {c === preferredClass ? " (담임)" : ""}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
+          </Field>
+        ) : (
+          <Field label="학급">
+            {locked ? (
+              <div className="rounded-xl border border-[var(--hairline)] bg-[var(--parchment)] px-3 py-2 text-sm">
+                <span className="font-semibold text-[var(--ink)]">
+                  {lockClassName}
+                </span>
+                <span className="text-[var(--ink-muted-48)]"> (담임)</span>
+              </div>
+            ) : (
+              <select
+                className={inputClass}
+                value={className}
+                onChange={(e) => setClassName(e.target.value)}
+              >
+                <option value="">학급 선택</option>
+                {classes.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                    {c === preferredClass ? " (담임)" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+        )}
         <Field
           label={`${sectionLabel} 자료`}
-          hint="다운로드 시 해당 학급의 학생 작성·교사 메모·문서별 초안을 함께 채웁니다. 전체 수합 초안은 포함하지 않습니다. 자료가 없으면 번호·이름만 있는 빈 양식을 내려줍니다."
+          hint={
+            memberMode
+              ? "다운로드 시 동아리원의 학생 작성·교사 메모·문서별 초안을 채웁니다(학급·번호·이름 포함). 업로드 시 학급 열이 필요하며, 해당 학생은 동아리원으로도 등록됩니다."
+              : "다운로드 시 해당 학급의 학생 작성·교사 메모·문서별 초안을 함께 채웁니다. 전체 수합 초안은 포함하지 않습니다. 자료가 없으면 번호·이름만 있는 빈 양식을 내려줍니다."
+          }
         >
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               className={btnPrimary}
-              disabled={busy || !className}
+              disabled={busy || !canAct}
               onClick={() => void onDownload()}
             >
               {busy ? "처리 중…" : "엑셀 다운로드"}
@@ -373,7 +458,7 @@ export function ClassExcelPanel({
             <button
               type="button"
               className={btnSecondary}
-              disabled={busy || !className}
+              disabled={busy || !canAct}
               onClick={() => fileRef.current?.click()}
             >
               엑셀 업로드

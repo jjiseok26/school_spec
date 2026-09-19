@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ClassExcelPanel } from "@/components/ClassExcelPanel";
 import { DocumentPanel } from "@/components/DocumentPanel";
 import { DraftWorkbench } from "@/components/DraftWorkbench";
 import { StudentPicker } from "@/components/StudentPicker";
@@ -255,6 +256,22 @@ export default function ClubPage() {
               </div>
             )}
           </Card>
+
+          {activeClub ? (
+            <ClassExcelPanel
+              section="club"
+              subjectId={activeClub.id}
+              subjectName={activeClub.name}
+              memberIds={activeClub.memberIds}
+              scopeLabel={activeClub.name}
+              onImportedStudents={(ids) => {
+                addClubMembers(activeClub.id, ids);
+                setMessage(
+                  `엑셀 업로드 학생 ${ids.length}명을 «${activeClub.name}» 동아리원으로 반영했습니다.`,
+                );
+              }}
+            />
+          ) : null}
 
           {activeClub ? (
             <Card title="학급에서 동아리원 가져오기">
