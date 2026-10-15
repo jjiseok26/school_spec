@@ -30,6 +30,14 @@ const API_KEY_LINKS = [
     url: "https://aistudio.google.com/app/apikey",
   },
   {
+    label: "ChatGPT (OpenAI) API 키 발급",
+    url: "https://platform.openai.com/api-keys",
+  },
+  {
+    label: "Claude (Anthropic) API 키 발급",
+    url: "https://console.anthropic.com/settings/keys",
+  },
+  {
     label: "NVIDIA NIM 무료 API 키 발급",
     url: "https://build.nvidia.com/settings/api-keys",
   },
@@ -85,6 +93,10 @@ export default function SettingsPage() {
     apiKey: "",
     model: DEFAULT_MODELS.google,
   });
+  const [openaiKey, setOpenaiKey] = useState("");
+  const [openaiModel, setOpenaiModel] = useState(DEFAULT_MODELS.openai);
+  const [claudeKey, setClaudeKey] = useState("");
+  const [claudeModel, setClaudeModel] = useState(DEFAULT_MODELS.anthropic);
   const [modelForm, setModelForm] = useState({
     provider: "google" as Provider,
     modelId: "",
@@ -155,6 +167,31 @@ export default function SettingsPage() {
     window.setTimeout(() => {
       scrollingRef.current = false;
     }, 700);
+  }
+
+  function onAddProviderKey(
+    provider: "openai" | "anthropic",
+    apiKey: string,
+    model: string,
+    clear: () => void,
+  ) {
+    if (!apiKey.trim()) {
+      setMessage("API 키를 입력하세요.");
+      return;
+    }
+    if (!model.trim()) {
+      setMessage("모델을 선택하거나 직접 입력하세요.");
+      return;
+    }
+    addApiKey({
+      label: PROVIDER_LABELS[provider],
+      provider,
+      apiKey: apiKey.trim(),
+      model: model.trim(),
+      enabled: true,
+    });
+    clear();
+    setMessage(`${PROVIDER_LABELS[provider]} API 키를 등록했습니다.`);
   }
 
   function onAddKey() {
@@ -363,10 +400,105 @@ export default function SettingsPage() {
           </section>
 
           <section id="settings-api" className="scroll-mt-48 space-y-4">
+            <Card title="ChatGPT · Claude API 키">
+              <p className="mb-3 text-sm text-slate-600">
+                ChatGPT는 OpenAI 키(sk-…), Claude는 Anthropic 키(sk-ant-…)를
+                입력합니다. 등록한 키는 아래 목록에서 우선순위를 조정할 수
+                있습니다.
+              </p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-800">
+                    ChatGPT (OpenAI)
+                  </p>
+                  <Field label="API 키">
+                    <input
+                      className={inputClass}
+                      type="password"
+                      value={openaiKey}
+                      onChange={(e) => setOpenaiKey(e.target.value)}
+                      placeholder="sk-..."
+                      autoComplete="off"
+                    />
+                  </Field>
+                  <Field label="모델">
+                    <select
+                      className={inputClass}
+                      value={openaiModel}
+                      onChange={(e) => setOpenaiModel(e.target.value)}
+                    >
+                      {listModelsForProvider("openai", customModels).map(
+                        (m) => (
+                          <option key={m.modelId} value={m.modelId}>
+                            {m.label} ({m.modelId})
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </Field>
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={() =>
+                      onAddProviderKey("openai", openaiKey, openaiModel, () =>
+                        setOpenaiKey(""),
+                      )
+                    }
+                  >
+                    ChatGPT 키 등록
+                  </button>
+                </div>
+                <div className="space-y-2 rounded-xl border border-slate-200 p-3">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Claude (Anthropic)
+                  </p>
+                  <Field label="API 키">
+                    <input
+                      className={inputClass}
+                      type="password"
+                      value={claudeKey}
+                      onChange={(e) => setClaudeKey(e.target.value)}
+                      placeholder="sk-ant-..."
+                      autoComplete="off"
+                    />
+                  </Field>
+                  <Field label="모델">
+                    <select
+                      className={inputClass}
+                      value={claudeModel}
+                      onChange={(e) => setClaudeModel(e.target.value)}
+                    >
+                      {listModelsForProvider("anthropic", customModels).map(
+                        (m) => (
+                          <option key={m.modelId} value={m.modelId}>
+                            {m.label} ({m.modelId})
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </Field>
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    onClick={() =>
+                      onAddProviderKey(
+                        "anthropic",
+                        claudeKey,
+                        claudeModel,
+                        () => setClaudeKey(""),
+                      )
+                    }
+                  >
+                    Claude 키 등록
+                  </button>
+                </div>
+              </div>
+            </Card>
+
             <Card title="AI API 키 등록">
               <Field
                 label="API 키 발급 사이트"
-                hint="항목을 선택하면 공식 발급 사이트가 새 창에서 열립니다. Llama API는 현재 미리보기 서비스일 수 있습니다."
+                hint="항목을 선택하면 공식 발급 사이트가 새 창에서 열립니다. ChatGPT와 Claude 키는 위 칸에서 바로 등록할 수 있습니다."
               >
                 <select
                   className={`${inputClass} mb-3`}
